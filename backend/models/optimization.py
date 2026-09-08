@@ -36,6 +36,8 @@ class GeneratedBlock(Base):
     block_end = Column(DateTime, nullable=False, index=True)
     is_joint_block = Column(Boolean, nullable=False, default=False)
     approval_status = Column(String(30), nullable=False, default="recommended")  # recommended | approved | modified | rejected
+    execution_status = Column(String(30), nullable=False, default="pending")  # pending | approved | in_progress | completed | cancelled
+    cancellation_reason = Column(String(255), nullable=True)
     approval_note = Column(String(255), nullable=True)
     approved_at = Column(DateTime, nullable=True)
     approved_by = Column(String(100), nullable=True)

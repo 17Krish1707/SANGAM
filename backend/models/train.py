@@ -10,10 +10,13 @@ class TrainMovement(Base):
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     section_id = Column(GUID, ForeignKey("railway_sections.id", ondelete="CASCADE"), nullable=False, index=True)
     train_type = Column(String(20), nullable=False)  # Passenger | Goods
+    train_number = Column(String(50), nullable=True)  # e.g. 12925, G-4022
     entry_time = Column(DateTime, nullable=False, index=True)
     exit_time = Column(DateTime, nullable=False, index=True)
     priority = Column(Integer, nullable=False, default=1)  # 1 = Highest, higher numbers = lower priority
     forecast_confidence = Column(Float, nullable=True)  # For goods trains (0.0 to 1.0)
+    source = Column(String(50), nullable=False, default="Synthetic Demo")  # Manual | CSV Import | Synthetic Demo | API
+    notes = Column(String(255), nullable=True)
 
     section = relationship("RailwaySection", back_populates="train_movements")
 

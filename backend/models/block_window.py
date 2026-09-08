@@ -13,6 +13,8 @@ class BlockWindow(Base):
     window_end = Column(DateTime, nullable=False, index=True)
     block_type = Column(String(50), nullable=False, default="Maintenance")  # Maintenance | Mega-block
     is_available = Column(Boolean, nullable=False, default=True)
+    unavailability_reason = Column(String(255), nullable=True)  # Operational restriction, VIP train, Weather, etc.
+    source = Column(String(50), nullable=False, default="Computed Gap")  # Computed Gap | Manual | COA
     risk_score = Column(Float, nullable=True)
 
     section = relationship("RailwaySection", back_populates="block_windows")

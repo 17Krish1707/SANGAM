@@ -55,3 +55,75 @@ def init_db(drop_first: bool = False):
     if drop_first:
         Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+
+    # Safe column migration for SQLite
+    if DATABASE_URL.startswith("sqlite"):
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            # Check maintenance_tasks
+            res = conn.execute(text("PRAGMA table_info(maintenance_tasks)")).fetchall()
+            cols = {r[1] for r in res}
+            if "description" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN description VARCHAR(500)"))
+            if "operational_notes" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN operational_notes VARCHAR(500)"))
+            if "source" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN source VARCHAR(50) DEFAULT 'Synthetic Demo'"))
+            if "deferred_reason" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN deferred_reason VARCHAR(255)"))
+            if "deferred_until" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN deferred_until DATETIME"))
+            if "completed_at" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN completed_at DATETIME"))
+            if "completion_notes" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN completion_notes VARCHAR(255)"))
+
+            # Check train_movements
+            res = conn.execute(text("PRAGMA table_info(train_movements)")).fetchall()
+            cols = {r[1] for r in res}
+            if "train_number" not in cols:
+                conn.execute(text("ALTER TABLE train_movements ADD COLUMN train_number VARCHAR(50)"))
+            if "source" not in cols:
+                conn.execute(text("ALTER TABLE train_movements ADD COLUMN source VARCHAR(50) DEFAULT 'Synthetic Demo'"))
+            if "notes" not in cols:
+                conn.execute(text("ALTER TABLE train_movements ADD COLUMN notes VARCHAR(255)"))
+
+            # Check block_windows
+            res = conn.execute(text("PRAGMA table_info(block_windows)")).fetchall()
+            cols = {r[1] for r in res}
+            if "unavailability_reason" not in cols:
+                conn.execute(text("ALTER TABLE block_windows ADD COLUMN unavailability_reason VARCHAR(255)"))
+            if "source" not in cols:
+                conn.execute(text("ALTER TABLE block_windows ADD COLUMN source VARCHAR(50) DEFAULT 'Computed Gap'"))
+
+            # Check resources
+            res = conn.execute(text("PRAGMA table_info(resources)")).fetchall()
+            cols = {r[1] for r in res}
+            if "unavailability_reason" not in cols:
+                conn.execute(text("ALTER TABLE resources ADD COLUMN unavailability_reason VARCHAR(255)"))
+            if "unavailable_from" not in cols:
+                conn.execute(text("ALTER TABLE resources ADD COLUMN unavailable_from VARCHAR(50)"))
+            if "unavailable_until" not in cols:
+                conn.execute(text("ALTER TABLE resources ADD COLUMN unavailable_until VARCHAR(50)"))
+
+            # Check generated_blocks
+            res = conn.execute(text("PRAGMA table_info(generated_blocks)")).fetchall()
+            cols = {r[1] for r in res}
+            if "execution_status" not in cols:
+                conn.execute(text("ALTER TABLE generated_blocks ADD COLUMN execution_status VARCHAR(30) DEFAULT 'pending'"))
+            if "cancellation_reason" not in cols:
+                conn.execute(text("ALTER TABLE generated_blocks ADD COLUMN cancellation_reason VARCHAR(255)"))
+
+            # Check railway_sections
+            res = conn.execute(text("PRAGMA table_info(railway_sections)")).fetchall()
+            cols = {r[1] for r in res}
+            if "corridor_name" not in cols:
+                conn.execute(text("ALTER TABLE railway_sections ADD COLUMN corridor_name VARCHAR(100) DEFAULT 'Main Corridor'"))
+            if "length_km" not in cols:
+                conn.execute(text("ALTER TABLE railway_sections ADD COLUMN length_km FLOAT DEFAULT 25.0"))
+            if "is_electrified" not in cols:
+                conn.execute(text("ALTER TABLE railway_sections ADD COLUMN is_electrified BOOLEAN DEFAULT 1"))
+            if "traction_type" not in cols:
+                conn.execute(text("ALTER TABLE railway_sections ADD COLUMN traction_type VARCHAR(50) DEFAULT '25 kV AC OHE'"))
+
+            conn.commit()

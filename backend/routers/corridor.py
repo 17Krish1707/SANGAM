@@ -171,6 +171,9 @@ def get_section_trains(
             "entry_time": t.entry_time.isoformat(),
             "exit_time": t.exit_time.isoformat(),
             "transit_min": int((t.exit_time - t.entry_time).total_seconds() // 60),
+            "train_number": getattr(t, "train_number", None) or ("12925" if t.train_type == "Passenger" else "G-4021"),
+            "source": getattr(t, "source", "Synthetic Demo"),
+            "notes": getattr(t, "notes", None),
             "priority": t.priority,
             "forecast_confidence": t.forecast_confidence,
         }
@@ -322,3 +325,273 @@ def get_section_24h_occupancy(
         "candidate_windows": windows_data,
         "scheduled_blocks": blocks_data,
     }
+
+
+# ── Train & Window Management Endpoints ──────────────────────────────────────
+
+from pydantic import BaseModel
+import uuid
+
+class TrainMovementCreate(BaseModel):
+    train_number: str
+    train_type: str = "Passenger"  # Passenger | Goods
+    section_id: str
+    entry_time: datetime
+    exit_time: datetime
+    priority: int = 1
+    forecast_confidence: Optional[float] = 1.0
+    source: str = "Manual"
+    notes: Optional[str] = None
+
+
+class TrainMovementUpdate(BaseModel):
+    train_number: Optional[str] = None
+    train_type: Optional[str] = None
+    section_id: Optional[str] = None
+    entry_time: Optional[datetime] = None
+    exit_time: Optional[datetime] = None
+    priority: Optional[int] = None
+    forecast_confidence: Optional[float] = None
+    notes: Optional[str] = None
+
+
+class WindowUnavailabilityToggle(BaseModel):
+    is_available: bool
+    reason: Optional[str] = None  # Operational restriction, VIP train, Weather, etc.
+
+
+@router.get("/trains/all")
+def list_all_trains(
+    section_id: Optional[str] = Query(None, description="Optional filter by section"),
+    train_type: Optional[str] = Query(None, description="Passenger | Goods"),
+    db: Session = Depends(get_db),
+):
+    """
+    List all train movements across corridor sections for the timetable management table.
+    """
+    query = db.query(TrainMovement)
+    if section_id:
+        query = query.filter(TrainMovement.section_id == section_id)
+    if train_type:
+        query = query.filter(TrainMovement.train_type == train_type)
+
+    trains = query.order_by(TrainMovement.entry_time.asc()).all()
+    return [
+        {
+            "id": str(t.id),
+            "train_number": getattr(t, "train_number", None) or ("12925" if t.train_type == "Passenger" else "G-4021"),
+            "section_id": str(t.section_id),
+            "section_name": t.section.name if t.section else "—",
+            "train_type": t.train_type,
+            "entry_time": t.entry_time.isoformat(),
+            "exit_time": t.exit_time.isoformat(),
+            "transit_min": int((t.exit_time - t.entry_time).total_seconds() // 60),
+            "priority": t.priority,
+            "forecast_confidence": t.forecast_confidence,
+            "source": getattr(t, "source", "Synthetic Demo"),
+            "notes": getattr(t, "notes", None),
+        }
+        for t in trains
+    ]
+
+
+@router.post("/trains")
+def create_train_movement(req: TrainMovementCreate, db: Session = Depends(get_db)):
+    """
+    Add a new train movement to the timetable.
+    """
+    sec = db.query(RailwaySection).filter((RailwaySection.id == req.section_id) | (RailwaySection.name == req.section_id)).first()
+    if not sec:
+        raise HTTPException(status_code=400, detail="Railway section not found")
+
+    if req.exit_time <= req.entry_time:
+        raise HTTPException(status_code=400, detail="Exit time must be after entry time")
+
+    tm = TrainMovement(
+        id=uuid.uuid4(),
+        section_id=sec.id,
+        train_type=req.train_type,
+        train_number=req.train_number,
+        entry_time=req.entry_time,
+        exit_time=req.exit_time,
+        priority=req.priority,
+        forecast_confidence=req.forecast_confidence,
+        source=req.source,
+        notes=req.notes,
+    )
+    db.add(tm)
+    db.commit()
+    db.refresh(tm)
+
+    # Recompute candidate corridor windows for this section
+    try:
+        w_start = tm.entry_time.replace(hour=0, minute=0, second=0)
+        w_end = w_start + timedelta(days=7)
+        populate_block_windows(db, [str(sec.id)], w_start, w_end)
+    except Exception as e:
+        print(f"Window recompute notice: {e}")
+
+    return {
+        "status": "success",
+        "id": str(tm.id),
+        "train_number": tm.train_number,
+        "message": f"Train movement {tm.train_number} added and corridor windows updated.",
+    }
+
+
+@router.put("/trains/{train_id}")
+def update_train_movement(train_id: str, req: TrainMovementUpdate, db: Session = Depends(get_db)):
+    """
+    Edit a train movement.
+    """
+    tm = db.query(TrainMovement).filter(TrainMovement.id == train_id).first()
+    if not tm:
+        raise HTTPException(status_code=404, detail="Train movement not found")
+
+    if req.train_number is not None:
+        tm.train_number = req.train_number
+    if req.train_type is not None:
+        tm.train_type = req.train_type
+    if req.section_id is not None:
+        sec = db.query(RailwaySection).filter((RailwaySection.id == req.section_id) | (RailwaySection.name == req.section_id)).first()
+        if sec:
+            tm.section_id = sec.id
+    if req.entry_time is not None:
+        tm.entry_time = req.entry_time
+    if req.exit_time is not None:
+        tm.exit_time = req.exit_time
+    if req.priority is not None:
+        tm.priority = req.priority
+    if req.forecast_confidence is not None:
+        tm.forecast_confidence = req.forecast_confidence
+    if req.notes is not None:
+        tm.notes = req.notes
+
+    db.commit()
+    db.refresh(tm)
+
+    try:
+        w_start = tm.entry_time.replace(hour=0, minute=0, second=0)
+        w_end = w_start + timedelta(days=7)
+        populate_block_windows(db, [str(tm.section_id)], w_start, w_end)
+    except Exception as e:
+        print(f"Window recompute notice: {e}")
+
+    return {"status": "success", "id": str(tm.id), "train_number": tm.train_number}
+
+
+@router.delete("/trains/{train_id}")
+def delete_train_movement(train_id: str, db: Session = Depends(get_db)):
+    """
+    Delete a train movement from timetable.
+    """
+    tm = db.query(TrainMovement).filter(TrainMovement.id == train_id).first()
+    if not tm:
+        raise HTTPException(status_code=404, detail="Train movement not found")
+
+    sec_id = str(tm.section_id)
+    w_start = tm.entry_time.replace(hour=0, minute=0, second=0)
+    w_end = w_start + timedelta(days=7)
+
+    db.delete(tm)
+    db.commit()
+
+    try:
+        populate_block_windows(db, [sec_id], w_start, w_end)
+    except Exception as e:
+        print(f"Window recompute notice: {e}")
+
+    return {"status": "success", "message": f"Train movement {train_id} deleted"}
+
+
+@router.post("/recompute-windows")
+def trigger_recompute_windows(
+    section_id: Optional[str] = Query(None),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Manually trigger candidate window extraction across all or specific sections.
+    """
+    if not start_date:
+        start_date = datetime.utcnow().replace(hour=0, minute=0, second=0)
+    if not end_date:
+        end_date = start_date + timedelta(days=7)
+
+    if section_id:
+        sections = db.query(RailwaySection).filter((RailwaySection.id == section_id) | (RailwaySection.name == section_id)).all()
+    else:
+        sections = db.query(RailwaySection).all()
+
+    sec_ids = [str(s.id) for s in sections]
+    if not sec_ids:
+        return {"status": "success", "windows_count": 0, "message": "No sections to compute windows for."}
+
+    windows = populate_block_windows(db, sec_ids, start_date, end_date)
+    return {
+        "status": "success",
+        "sections_evaluated": len(sec_ids),
+        "windows_count": len(windows),
+        "message": f"Generated {len(windows)} candidate maintenance windows.",
+    }
+
+
+@router.get("/windows/all")
+def list_all_windows(
+    section_id: Optional[str] = Query(None, description="Optional section filter"),
+    db: Session = Depends(get_db),
+):
+    """
+    List all available and restricted maintenance candidate windows across the corridor.
+    """
+    query = db.query(BlockWindow)
+    if section_id:
+        query = query.filter(BlockWindow.section_id == section_id)
+
+    windows = query.order_by(BlockWindow.window_start.asc()).all()
+    results = []
+    for w in windows:
+        dur = int((w.window_end - w.window_start).total_seconds() // 60)
+        results.append({
+            "id": str(w.id),
+            "section_id": str(w.section_id),
+            "section_name": w.section.name if w.section else "—",
+            "window_start": w.window_start.isoformat(),
+            "window_end": w.window_end.isoformat(),
+            "duration_min": dur,
+            "block_type": w.block_type,
+            "is_available": w.is_available,
+            "unavailability_reason": getattr(w, "unavailability_reason", None),
+            "source": getattr(w, "source", "Computed Gap"),
+            "risk_score": w.risk_score,
+            "status": "Available" if w.is_available else "Unavailable",
+        })
+    return results
+
+
+@router.post("/windows/{window_id}/unavailability")
+def toggle_window_availability(window_id: str, req: WindowUnavailabilityToggle, db: Session = Depends(get_db)):
+    """
+    Controller action to mark a corridor maintenance window unavailable (with operational reason)
+    or restore availability.
+    Directly respected by the CP-SAT optimizer and heuristic baselines!
+    """
+    w = db.query(BlockWindow).filter(BlockWindow.id == window_id).first()
+    if not w:
+        raise HTTPException(status_code=404, detail="Block window not found")
+
+    w.is_available = req.is_available
+    w.unavailability_reason = req.reason if not req.is_available else None
+
+    db.commit()
+    db.refresh(w)
+
+    return {
+        "status": "success",
+        "id": str(w.id),
+        "is_available": w.is_available,
+        "unavailability_reason": w.unavailability_reason,
+        "message": "Window availability updated. Optimizer will respect this setting.",
+    }
+

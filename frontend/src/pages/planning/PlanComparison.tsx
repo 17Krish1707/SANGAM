@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { CheckCircle2, TrendingDown, Sparkles, AlertCircle } from 'lucide-react';
 import TopBar from '../../components/TopBar';
 import Panel from '../../components/ui/Panel';
+import { PageGuideBanner } from '../../components/ui/PageGuideBanner';
 import BeforeAfterPossession from '../../components/railway/BeforeAfterPossession';
 import GanttBars, { type GanttLane } from '../../components/GanttBars';
 import {
@@ -184,6 +185,14 @@ export default function PlanComparison() {
       />
 
       <main className="flex-1 overflow-y-auto bg-panel p-6 space-y-6">
+        <PageGuideBanner
+          pageTitle="Compare Plans & Savings Matrix"
+          purpose="Compare CP-SAT optimized joint block plans against uncoordinated departmental baselines. View direct metric improvements in corridor downtime hours saved, joint possession bundling, and passenger train punctuality protection."
+          inputs={['Optimization Run IDs (Optimized, Greedy, Independent Baselines)']}
+          outputs={['Downtime Hours Saved', 'Joint Block Reduction Factor', 'Side-by-Side Timeline Comparison']}
+          nextStep={{ label: 'Review Approved Possessions', to: '/operations/approved' }}
+        />
+
         {loading ? (
           <Panel>
             <p className="text-sm text-text-secondary py-12 text-center animate-pulse">
@@ -191,10 +200,11 @@ export default function PlanComparison() {
             </p>
           </Panel>
         ) : noData ? (
-          <Panel className="flex flex-col items-center py-12 gap-3 text-center">
-            <AlertCircle className="w-8 h-8 text-text-secondary" />
-            <p className="text-sm text-text-secondary">
-              No optimization run history found. Run the optimizer from the Planning Workbench first.
+          <Panel className="flex flex-col items-center py-12 gap-3 text-center bg-white border border-[#D9E1EA]">
+            <AlertCircle className="w-8 h-8 text-[#667085]" />
+            <h3 className="font-bold text-[#172033] text-sm">Plan Savings: — No comparison available yet</h3>
+            <p className="text-xs text-[#667085] max-w-md">
+              Run the optimizer from <strong>Create Block Plan</strong> on your current dataset to generate baseline and SANGAM optimized plans for direct mathematical comparison.
             </p>
           </Panel>
         ) : (

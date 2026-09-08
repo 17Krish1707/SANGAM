@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import TopBar from '../components/TopBar';
+import { PageGuideBanner } from '../components/ui/PageGuideBanner';
 import {
   getLatestRuns,
   getPlan,
@@ -47,6 +48,16 @@ export default function Reports() {
       />
 
       <main className="flex-1 overflow-y-auto bg-panel p-6 space-y-6">
+        <div className="no-print">
+          <PageGuideBanner
+            pageTitle="Sanction Reports"
+            purpose="Generate and dispatch official Indian Railways joint possession circulars. Formatted according to standard operating templates for Divisional Railway Manager (DRM) and Senior Divisional Operations Manager (Sr. DOM) review and signature."
+            inputs={['Approved Block Plan Schedule', 'Department Task Listings', 'Traction Isolation Notes']}
+            outputs={['Printable Official Operating Circular', 'PDF Dispatch Notice', 'DRM Sanction Register']}
+            nextStep={{ label: 'Return to Operations Overview', to: '/' }}
+          />
+        </div>
+
         {/* Action Header */}
         <div className="flex items-center justify-between no-print">
           <span className="text-xs text-text-secondary font-medium">

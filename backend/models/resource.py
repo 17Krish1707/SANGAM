@@ -12,6 +12,9 @@ class Resource(Base):
     resource_type = Column(String(50), nullable=False)  # Crew | Equipment
     name = Column(String(100), nullable=False)
     is_available = Column(Boolean, nullable=False, default=True)
+    unavailability_reason = Column(String(255), nullable=True)  # Maintenance, breakdown, diverted, etc.
+    unavailable_from = Column(String(50), nullable=True)
+    unavailable_until = Column(String(50), nullable=True)
 
     department = relationship("Department", back_populates="resources")
     task_requirements = relationship("TaskResourceRequirement", back_populates="resource", cascade="all, delete-orphan")

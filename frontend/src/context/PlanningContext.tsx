@@ -33,6 +33,12 @@ interface PlanningContextType {
   isLoadingPlan: boolean;
   isGenerating: boolean;
 
+  // User Role & Workflow
+  userRole: 'Planner' | 'Controller';
+  setUserRole: (r: 'Planner' | 'Controller') => void;
+  workflowStage: number; // 1: Maintenance, 2: Corridor, 3: Resources, 4: Optimize, 5: Review, 6: Approve
+  setWorkflowStage: (s: number) => void;
+
   // Actions
   triggerGenerate: (profile?: ObjectiveProfile) => Promise<void>;
   refreshAll: () => Promise<void>;
@@ -50,6 +56,8 @@ export const DEFAULT_DEMO_DATE = '2026-09-07';
 export const DEFAULT_CORRIDOR_NAME = 'Station A → Station F (Trunk Route)';
 
 export function PlanningProvider({ children }: { children: React.ReactNode }) {
+  const [userRole, setUserRole] = useState<'Planner' | 'Controller'>('Controller');
+  const [workflowStage, setWorkflowStage] = useState<number>(1);
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(DEFAULT_DEMO_DATE);
   const [selectedHorizon, setSelectedHorizon] = useState<HorizonType>('weekly');
@@ -151,6 +159,10 @@ export function PlanningProvider({ children }: { children: React.ReactNode }) {
   return (
     <PlanningContext.Provider
       value={{
+        userRole,
+        setUserRole,
+        workflowStage,
+        setWorkflowStage,
         selectedSectionId,
         setSelectedSectionId,
         selectedDate,

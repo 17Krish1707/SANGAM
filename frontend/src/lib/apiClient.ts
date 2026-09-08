@@ -60,14 +60,73 @@ export function getHealth(): Promise<HealthResponse> {
 export interface Section {
   id: string;
   name: string;
+  code?: string;
   from_station: string;
   to_station: string;
+  length_km?: number;
+  tracks_count?: number;
+  electrification_type?: string;
   line_type: string;
+  corridor_name?: string;
+  is_electrified?: boolean;
+  traction_type?: string;
   section_capacity_notes: string | null;
+}
+
+export interface SectionCreateInput {
+  name: string;
+  corridor_name?: string;
+  from_station: string;
+  to_station: string;
+  length_km?: number;
+  line_type?: 'single' | 'double';
+  is_electrified?: boolean;
+  traction_type?: string;
+  section_capacity_notes?: string;
 }
 
 export function getSections(): Promise<Section[]> {
   return request<Section[]>('/api/sections');
+}
+
+export function createSection(data: SectionCreateInput): Promise<Section> {
+  return request<Section>('/api/sections', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateSection(id: string, data: Partial<SectionCreateInput>): Promise<Section> {
+  return request<Section>(`/api/sections/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteSection(id: string): Promise<void> {
+  return request<void>(`/api/sections/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export interface CorridorSetupInput {
+  corridor_name: string;
+  stations: string[];
+  line_type?: string;
+  is_electrified?: boolean;
+}
+
+export function setupCorridor(data: CorridorSetupInput): Promise<{ message: string; sections: Section[] }> {
+  return request<{ message: string; sections: Section[] }>('/api/sections/corridor-setup', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function resetOperationalDatabase(keepSections: boolean = false): Promise<{ status: string; message: string }> {
+  return request<{ status: string; message: string }>(`/api/rules/reset-operational-data?keep_sections=${keepSections}`, {
+    method: 'POST',
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -77,6 +136,7 @@ export function getSections(): Promise<Section[]> {
 export interface MaintenanceTask {
   id: string;
   task_code: string;
+  title?: string;
   department_id: string;
   department_code: string | null;
   department_name: string | null;
@@ -94,6 +154,13 @@ export interface MaintenanceTask {
   can_run_parallel: boolean;
   status: string;
   priority_score: number;
+  description?: string | null;
+  operational_notes?: string | null;
+  source?: string;
+  deferred_reason?: string | null;
+  deferred_until?: string | null;
+  completed_at?: string | null;
+  completion_notes?: string | null;
   created_at: string | null;
 }
 
@@ -184,6 +251,7 @@ export interface BlockTask {
   duration_min: number;
   priority_score: number;
   requires_power_isolation: boolean;
+  crew_type?: string;
 }
 
 export interface GeneratedBlock {
@@ -202,6 +270,11 @@ export interface GeneratedBlock {
   locked?: boolean;
   tasks_count: number;
   tasks: BlockTask[];
+  departments?: string[];
+  operational_status?: 'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled';
+  execution_notes?: string | null;
+  actual_start?: string | null;
+  actual_end?: string | null;
 }
 
 export interface PlanDetail {
@@ -697,3 +770,363 @@ export function getDataSourcesSummary(): Promise<DataSourcesSummary> {
   return request<DataSourcesSummary>('/api/plans/data-sources/summary');
 }
 
+// ─────────────────────────────────────────────
+// Task CRUD & Lifecycle API
+// ─────────────────────────────────────────────
+
+export interface TaskCreatePayload {
+  department_code: string;
+  section_id: string;
+  asset_name?: string;
+  maintenance_type: string;
+  description?: string;
+  severity: 'Low' | 'Medium' | 'High' | 'Critical';
+  detected_at?: string;
+  due_date: string;
+  estimated_duration_min: number;
+  minimum_contiguous_block_min?: number;
+  requires_power_isolation?: boolean;
+  can_run_parallel?: boolean;
+  crew_type?: string;
+  equipment?: string;
+  operational_notes?: string;
+  status?: string;
+  source?: string;
+}
+
+export function createTask(payload: TaskCreatePayload): Promise<{ status: string; id: string; task_code: string; priority_score: number; message: string }> {
+  return request('/api/tasks', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateTask(taskId: string, payload: Partial<TaskCreatePayload>): Promise<{ status: string; id: string; task_code: string; priority_score: number; message: string }> {
+  return request(`/api/tasks/${taskId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function duplicateTask(taskId: string): Promise<{ status: string; new_task_id: string; new_task_code: string; message: string }> {
+  return request(`/api/tasks/${taskId}/duplicate`, {
+    method: 'POST',
+  });
+}
+
+export function deferTask(taskId: string, reason: string, newTargetDate: string): Promise<{ status: string; task_id: string; task_code: string; status_now: string; deferred_until: string; reason: string }> {
+  return request(`/api/tasks/${taskId}/defer`, {
+    method: 'POST',
+    body: JSON.stringify({ reason, new_target_date: newTargetDate }),
+  });
+}
+
+export function completeTask(taskId: string, note?: string, completionTime?: string): Promise<{ status: string; task_id: string; task_code: string; status_now: string; completed_at: string }> {
+  return request(`/api/tasks/${taskId}/complete`, {
+    method: 'POST',
+    body: JSON.stringify({ note, completion_time: completionTime }),
+  });
+}
+
+export function deleteTask(taskId: string): Promise<{ status: string; message: string }> {
+  return request(`/api/tasks/${taskId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function createEmergencyTask(dept: string, sectionId: string, type: string, durationMin = 90): Promise<any> {
+  const p = new URLSearchParams({
+    department_code: dept,
+    section_id: sectionId,
+    maintenance_type: type,
+    duration_min: String(durationMin),
+  });
+  return request(`/api/tasks/emergency?${p.toString()}`, {
+    method: 'POST',
+  });
+}
+
+export function importCsvTasks(tasks: any[]): Promise<{ status: string; imported_count: number; task_codes: string[]; message: string }> {
+  return request('/api/tasks/import-csv', {
+    method: 'POST',
+    body: JSON.stringify({ tasks }),
+  });
+}
+
+// ─────────────────────────────────────────────
+// Train Timetable & Candidate Windows API
+// ─────────────────────────────────────────────
+
+export interface TimetableTrain {
+  id: string;
+  train_number: string;
+  section_id: string;
+  section_name: string;
+  train_type: 'Passenger' | 'Goods';
+  entry_time: string;
+  exit_time: string;
+  transit_min: number;
+  priority: number;
+  forecast_confidence: number | null;
+  source: string;
+  notes?: string | null;
+}
+
+export function getAllTrains(sectionId?: string, trainType?: string): Promise<TimetableTrain[]> {
+  const p = new URLSearchParams();
+  if (sectionId) p.set('section_id', sectionId);
+  if (trainType) p.set('train_type', trainType);
+  const qs = p.toString();
+  return request<TimetableTrain[]>(`/api/corridor/trains/all${qs ? `?${qs}` : ''}`);
+}
+
+export function createTrainMovement(payload: {
+  train_number: string;
+  train_type: string;
+  section_id: string;
+  entry_time: string;
+  exit_time: string;
+  priority?: number;
+  forecast_confidence?: number;
+  source?: string;
+  notes?: string;
+}): Promise<{ status: string; id: string; train_number: string; message: string }> {
+  return request('/api/corridor/trains', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateTrainMovement(trainId: string, payload: any): Promise<any> {
+  return request(`/api/corridor/trains/${trainId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteTrainMovement(trainId: string): Promise<any> {
+  return request(`/api/corridor/trains/${trainId}`, {
+    method: 'DELETE',
+  });
+}
+
+export interface CorridorWindowFull {
+  id: string;
+  section_id: string;
+  section_name: string;
+  window_start: string;
+  window_end: string;
+  duration_min: number;
+  block_type: string;
+  is_available: boolean;
+  unavailability_reason?: string | null;
+  source: string;
+  risk_score: number | null;
+  status: 'Available' | 'Unavailable';
+}
+
+export function getAllWindows(sectionId?: string): Promise<CorridorWindowFull[]> {
+  const qs = sectionId ? `?section_id=${sectionId}` : '';
+  return request<CorridorWindowFull[]>(`/api/corridor/windows/all${qs}`);
+}
+
+export function toggleWindowAvailability(windowId: string, isAvailable: boolean, reason?: string): Promise<any> {
+  return request(`/api/corridor/windows/${windowId}/unavailability`, {
+    method: 'POST',
+    body: JSON.stringify({ is_available: isAvailable, reason }),
+  });
+}
+
+// ─────────────────────────────────────────────
+// Resources API
+// ─────────────────────────────────────────────
+
+export interface ResourceItem {
+  id: string;
+  name: string;
+  department_id: string;
+  department_code: string;
+  department_name: string | null;
+  resource_type: string;
+  is_available: boolean;
+  unavailability_reason?: string | null;
+  unavailable_from?: string | null;
+  unavailable_until?: string | null;
+  assigned_tasks_count: number;
+  assigned_task_codes: string[];
+  status: 'Available' | 'Unavailable';
+}
+
+export function getResources(department?: string, resourceType?: string): Promise<ResourceItem[]> {
+  const p = new URLSearchParams();
+  if (department) p.set('department', department);
+  if (resourceType) p.set('resource_type', resourceType);
+  const qs = p.toString();
+  return request<ResourceItem[]>(`/api/resources${qs ? `?${qs}` : ''}`);
+}
+
+export function createResource(payload: {
+  name: string;
+  department_code: string;
+  resource_type: string;
+  is_available?: boolean;
+}): Promise<any> {
+  return request('/api/resources', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateResource(resourceId: string, payload: any): Promise<any> {
+  return request(`/api/resources/${resourceId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function toggleResourceAvailability(resourceId: string, isAvailable: boolean, reason?: string, from?: string, until?: string): Promise<any> {
+  return request(`/api/resources/${resourceId}/toggle-availability`, {
+    method: 'POST',
+    body: JSON.stringify({ is_available: isAvailable, reason, unavailable_from: from, unavailable_until: until }),
+  });
+}
+
+export function deleteResource(resourceId: string): Promise<any> {
+  return request(`/api/resources/${resourceId}`, {
+    method: 'DELETE',
+  });
+}
+
+// ─────────────────────────────────────────────
+// Planning Rules API
+// ─────────────────────────────────────────────
+
+export interface PlanningRulesResponse {
+  status: string;
+  hard_rules: Record<string, { value: any; unit?: string; description: string; is_hard_rule: boolean }>;
+  planning_preferences: Record<string, { value: any; description: string }>;
+  metadata: { last_updated: string; updated_by: string };
+}
+
+export function getPlanningRules(): Promise<PlanningRulesResponse> {
+  return request<PlanningRulesResponse>('/api/rules');
+}
+
+export function updatePlanningRules(payload: any): Promise<any> {
+  return request('/api/rules', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function resetPlanningRules(): Promise<any> {
+  return request('/api/rules/reset', {
+    method: 'POST',
+  });
+}
+
+// ─────────────────────────────────────────────
+// Block Overrides, Locking & Operational Changes
+// ─────────────────────────────────────────────
+
+export interface BlockValidationResult {
+  is_valid: boolean;
+  reason: string | null;
+  message?: string;
+  conflict_type?: string;
+}
+
+export function validateBlockChanges(blockId: string, newStart: string, newEnd: string, taskIds?: string[]): Promise<BlockValidationResult> {
+  return request<BlockValidationResult>(`/api/plans/blocks/${blockId}/validate-changes`, {
+    method: 'POST',
+    body: JSON.stringify({ new_start: newStart, new_end: newEnd, task_ids: taskIds }),
+  });
+}
+
+export function applyBlockOverride(blockId: string, newStart: string, newEnd: string, taskIds?: string[], note?: string): Promise<any> {
+  return request(`/api/plans/blocks/${blockId}/override`, {
+    method: 'PUT',
+    body: JSON.stringify({ new_start: newStart, new_end: newEnd, task_ids: taskIds, note }),
+  });
+}
+
+export function toggleBlockLock(blockId: string, locked: boolean): Promise<{ status: string; block_id: string; locked: boolean; message: string }> {
+  return request(`/api/plans/blocks/${blockId}/lock`, {
+    method: 'POST',
+    body: JSON.stringify({ locked }),
+  });
+}
+
+export function updateBlockExecutionStatus(blockId: string, status: 'approved' | 'in_progress' | 'completed' | 'cancelled', notes?: string, cancellationReason?: string): Promise<any> {
+  return request(`/api/plans/blocks/${blockId}/execution-status`, {
+    method: 'POST',
+    body: JSON.stringify({ status, notes, cancellation_reason: cancellationReason }),
+  });
+}
+
+export function approveBlock(blockId: string, note?: string): Promise<any> {
+  return updateBlockExecutionStatus(blockId, 'approved', note);
+}
+
+export function rejectBlock(blockId: string, reason?: string): Promise<any> {
+  return updateBlockExecutionStatus(blockId, 'cancelled', undefined, reason);
+}
+
+export function approveAllCleanBlocks(runId: string, controllerName?: string): Promise<{ status: string; approved_count: number; approved_by: string; message: string }> {
+  return request('/api/plans/approvals/approve-all-clean', {
+    method: 'POST',
+    body: JSON.stringify({ run_id: runId, controller_name: controllerName }),
+  });
+}
+
+export interface OperationalChangeDiff {
+  status: string;
+  change_type: string;
+  new_run_id: string;
+  parent_run_id: string;
+  summary: {
+    unchanged_count: number;
+    moved_count: number;
+    new_count: number;
+    deferred_count: number;
+  };
+  unchanged_blocks?: any[];
+  moved_blocks?: any[];
+  new_blocks?: any[];
+  disruption_summary: string;
+}
+
+export function reportOperationalChange(runId: string, payload: {
+  change_type: 'train_delay' | 'window_unavailable' | 'resource_unavailable' | 'emergency_maintenance' | 'block_cancelled';
+  section_id?: string;
+  train_number?: string;
+  delay_minutes?: number;
+  window_id?: string;
+  resource_id?: string;
+  block_id?: string;
+  description?: string;
+}): Promise<OperationalChangeDiff> {
+  return request<OperationalChangeDiff>(`/api/plans/${runId}/operational-change`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export type ReplanDiffResponse = OperationalChangeDiff;
+
+export function simulateReplan(params: {
+  parent_run_id: string;
+  change_type: 'train_delay' | 'window_unavailable' | 'resource_unavailable' | 'emergency_maintenance' | 'block_cancelled';
+  section_id?: string;
+  train_number?: string;
+  delay_minutes?: number;
+  window_id?: string;
+  resource_id?: string;
+  block_id?: string;
+  description?: string;
+}): Promise<ReplanDiffResponse> {
+  return reportOperationalChange(params.parent_run_id, params);
+}
+
+export const triggerOptimization = generatePlans;
+export const updateBlockOperationalStatus = updateBlockExecutionStatus;

@@ -4,17 +4,19 @@ import { usePlanningContext, DEFAULT_CORRIDOR_NAME } from '../context/PlanningCo
 import RailwaySectionStrip from './railway/RailwaySectionStrip';
 
 interface TopBarProps {
-  title: string;
+  title?: string;
   subtitle?: string;
   showCorridorStrip?: boolean;
 }
 
 export default function TopBar({
-  title,
+  title = 'SANGAM Operations Workstation',
   subtitle,
   showCorridorStrip = false,
 }: TopBarProps) {
   const {
+    userRole,
+    setUserRole,
     selectedHorizon,
     setSelectedHorizon,
     selectedDate,
@@ -54,22 +56,37 @@ export default function TopBar({
 
         {/* Right Controls */}
         <div className="flex items-center gap-2.5">
-          {/* Synthetic Dataset Snapshot Badge */}
-          <div
-            className="hidden md:inline-flex items-center gap-1.5 px-2 py-1 rounded bg-panel border border-border text-[11px] font-mono text-text-secondary"
-            title="Synthetic dataset generated reproducibly with fixed seed=26027"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-            <span>SYNTHETIC PROTOTYPE DATA</span>
+          {/* Active User Role Switcher */}
+          <div className="flex items-center border border-border rounded-md overflow-hidden text-xs" title="Switch operational perspective">
+            <button
+              onClick={() => setUserRole('Planner')}
+              className={`px-2.5 py-1 font-semibold transition-colors ${
+                userRole === 'Planner'
+                  ? 'bg-blue-700 text-white'
+                  : 'bg-white text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              Planner
+            </button>
+            <button
+              onClick={() => setUserRole('Controller')}
+              className={`px-2.5 py-1 font-semibold transition-colors ${
+                userRole === 'Controller'
+                  ? 'bg-emerald-700 text-white'
+                  : 'bg-white text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              Controller
+            </button>
           </div>
 
           {/* Optimizer Status Indicator */}
           <div
-            className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-50 border border-emerald-200 text-[11px] font-mono font-semibold text-emerald-800"
-            title="Google OR-Tools CP-SAT discrete solver ready"
+            className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-50 border border-emerald-200 text-[11px] font-mono font-semibold text-emerald-800"
+            title="Optimization Engine: Google OR-Tools CP-SAT"
           >
             <span className={`w-2 h-2 rounded-full ${isGenerating ? 'bg-amber-500 animate-ping' : 'bg-emerald-600'}`} />
-            <span>{isGenerating ? 'Solving CP-SAT...' : 'Optimizer Ready'}</span>
+            <span>{isGenerating ? 'Optimizing...' : 'Engine Ready'}</span>
           </div>
 
           {/* Horizon Toggle */}

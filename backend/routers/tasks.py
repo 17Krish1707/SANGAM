@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -100,6 +101,13 @@ def list_tasks(
             "can_run_parallel": t.can_run_parallel,
             "status": t.status,
             "priority_score": score,
+            "description": getattr(t, "description", None),
+            "operational_notes": getattr(t, "operational_notes", None),
+            "source": getattr(t, "source", "Synthetic Demo"),
+            "deferred_reason": getattr(t, "deferred_reason", None),
+            "deferred_until": t.deferred_until.isoformat() if getattr(t, "deferred_until", None) else None,
+            "completed_at": t.completed_at.isoformat() if getattr(t, "completed_at", None) else None,
+            "completion_notes": getattr(t, "completion_notes", None),
             "created_at": t.created_at.isoformat() if t.created_at else None,
         })
 
@@ -297,6 +305,13 @@ def get_task_intelligence(
             "can_run_parallel": task.can_run_parallel,
             "status": task.status,
             "priority_score": task.priority_score,
+            "description": getattr(task, "description", None),
+            "operational_notes": getattr(task, "operational_notes", None),
+            "source": getattr(task, "source", "Synthetic Demo"),
+            "deferred_reason": getattr(task, "deferred_reason", None),
+            "deferred_until": task.deferred_until.isoformat() if getattr(task, "deferred_until", None) else None,
+            "completed_at": task.completed_at.isoformat() if getattr(task, "completed_at", None) else None,
+            "completion_notes": getattr(task, "completion_notes", None),
         },
         "priority_breakdown": breakdown,
         "relationships": {
@@ -309,3 +324,430 @@ def get_task_intelligence(
         "candidate_windows": windows_data,
         "scheduled_assignment": scheduled_assignment,
     }
+
+
+# ── Task CRUD & Lifecycle Endpoints ──────────────────────────────────────────
+
+class TaskCreateRequest(BaseModel):
+    department_code: str  # ENG | TRD | SNT
+    section_id: str
+    asset_name: Optional[str] = "Track / Catenary / Point"
+    maintenance_type: str
+    description: Optional[str] = None
+    severity: str = "Medium"  # Low | Medium | High | Critical
+    detected_at: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    estimated_duration_min: int
+    minimum_contiguous_block_min: Optional[int] = None
+    requires_power_isolation: bool = False
+    can_run_parallel: bool = False
+    crew_type: Optional[str] = None
+    equipment: Optional[str] = None
+    required_resource_ids: Optional[List[str]] = None
+    operational_notes: Optional[str] = None
+    status: str = "Pending"  # Pending | Ready for Planning | New
+    source: str = "Manual"
+
+
+class TaskUpdateRequest(BaseModel):
+    department_code: Optional[str] = None
+    section_id: Optional[str] = None
+    asset_name: Optional[str] = None
+    maintenance_type: Optional[str] = None
+    description: Optional[str] = None
+    severity: Optional[str] = None
+    detected_at: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    estimated_duration_min: Optional[int] = None
+    minimum_contiguous_block_min: Optional[int] = None
+    requires_power_isolation: Optional[bool] = None
+    can_run_parallel: Optional[bool] = None
+    operational_notes: Optional[str] = None
+    status: Optional[str] = None
+
+
+class TaskDeferRequest(BaseModel):
+    reason: str
+    new_target_date: datetime
+
+
+class TaskCompleteRequest(BaseModel):
+    completion_time: Optional[datetime] = None
+    note: Optional[str] = None
+
+
+class TaskImportRow(BaseModel):
+    department: str
+    section: str
+    maintenance_type: str
+    severity: str = "Medium"
+    due_date: str
+    duration_min: int
+    requires_power_isolation: bool = False
+    description: Optional[str] = None
+
+
+class TaskImportBatch(BaseModel):
+    tasks: List[TaskImportRow]
+
+
+@router.post("")
+def create_task(req: TaskCreateRequest, db: Session = Depends(get_db)):
+    """
+    Add a new maintenance request with automatic priority calculation and DB persistence.
+    """
+    import uuid
+    from backend.models.section import RailwaySection
+    from backend.models.asset import Asset
+    from backend.models.resource import Resource, TaskResourceRequirement
+
+    if req.estimated_duration_min <= 0:
+        raise HTTPException(status_code=400, detail="Estimated duration must be greater than 0 minutes")
+
+    detected = req.detected_at or datetime.utcnow()
+    due = req.due_date or (detected + timedelta(days=7))
+    if due < detected:
+        raise HTTPException(status_code=400, detail="Due date cannot be before detected date")
+
+    # Find department
+    dept = db.query(Department).filter(
+        (Department.code == req.department_code.upper().strip()) |
+        (Department.name.ilike(f"%{req.department_code}%"))
+    ).first()
+    if not dept:
+        dept = db.query(Department).first()
+        if not dept:
+            raise HTTPException(status_code=400, detail=f"Department {req.department_code} not found")
+
+    # Find section
+    sec = db.query(RailwaySection).filter(
+        (RailwaySection.id == req.section_id) |
+        (RailwaySection.name.ilike(f"%{req.section_id}%"))
+    ).first()
+    if not sec:
+        raise HTTPException(status_code=400, detail=f"Railway section {req.section_id} not found")
+
+    # Asset
+    asset = None
+    if req.asset_name:
+        asset = db.query(Asset).filter(Asset.section_id == sec.id, Asset.asset_type.ilike(f"%{req.asset_name}%")).first()
+        if not asset:
+            asset = Asset(
+                id=uuid.uuid4(),
+                section_id=sec.id,
+                department_id=dept.id,
+                asset_type=req.asset_name,
+                health_state="Good",
+            )
+            db.add(asset)
+            db.flush()
+
+    # Generate unique task_code
+    seq_count = db.query(MaintenanceTask).filter(MaintenanceTask.department_id == dept.id).count() + 1
+    task_code = f"{dept.code}-{seq_count:04d}"
+    while db.query(MaintenanceTask).filter(MaintenanceTask.task_code == task_code).first():
+        seq_count += 1
+        task_code = f"{dept.code}-{seq_count:04d}"
+
+    min_block = req.minimum_contiguous_block_min or req.estimated_duration_min
+
+    task = MaintenanceTask(
+        id=uuid.uuid4(),
+        task_code=task_code,
+        department_id=dept.id,
+        section_id=sec.id,
+        asset_id=asset.id if asset else None,
+        maintenance_type=req.maintenance_type,
+        severity=req.severity,
+        detected_at=detected,
+        due_date=req.due_date,
+        estimated_duration_min=req.estimated_duration_min,
+        minimum_contiguous_block_min=min_block,
+        requires_power_isolation=req.requires_power_isolation,
+        can_run_parallel=req.can_run_parallel,
+        status=req.status,
+        description=req.description,
+        operational_notes=req.operational_notes,
+        source=req.source,
+    )
+
+    # Compute priority score
+    task.priority_score = compute_priority_score(task)
+
+    db.add(task)
+    db.flush()
+
+    # Link resource requirements if specified
+    if req.crew_type:
+        crew_res = db.query(Resource).filter(
+            Resource.department_id == dept.id,
+            Resource.resource_type == "Crew",
+            Resource.name.ilike(f"%{req.crew_type}%")
+        ).first()
+        if crew_res:
+            db.add(TaskResourceRequirement(id=uuid.uuid4(), task_id=task.id, resource_id=crew_res.id))
+
+    if req.equipment:
+        eq_res = db.query(Resource).filter(
+            Resource.department_id == dept.id,
+            Resource.name.ilike(f"%{req.equipment}%")
+        ).first()
+        if eq_res:
+            db.add(TaskResourceRequirement(id=uuid.uuid4(), task_id=task.id, resource_id=eq_res.id))
+
+    db.commit()
+    db.refresh(task)
+
+    return {
+        "status": "success",
+        "id": str(task.id),
+        "task_code": task.task_code,
+        "priority_score": task.priority_score,
+        "message": f"Maintenance work {task.task_code} added and scored successfully.",
+    }
+
+
+@router.put("/{task_id}")
+def update_task(task_id: str, req: TaskUpdateRequest, db: Session = Depends(get_db)):
+    """
+    Update maintenance request fields and recompute priority score.
+    """
+    task = db.query(MaintenanceTask).filter(MaintenanceTask.id == task_id).first()
+    if not task:
+        task = db.query(MaintenanceTask).filter(MaintenanceTask.task_code == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Maintenance task not found")
+
+    if req.department_code is not None:
+        dept = db.query(Department).filter(Department.code == req.department_code.upper().strip()).first()
+        if dept:
+            task.department_id = dept.id
+
+    if req.section_id is not None:
+        sec = db.query(RailwaySection).filter((RailwaySection.id == req.section_id) | (RailwaySection.name == req.section_id)).first()
+        if sec:
+            task.section_id = sec.id
+
+    if req.maintenance_type is not None:
+        task.maintenance_type = req.maintenance_type
+    if req.description is not None:
+        task.description = req.description
+    if req.severity is not None:
+        task.severity = req.severity
+    if req.detected_at is not None:
+        task.detected_at = req.detected_at
+    if req.due_date is not None:
+        task.due_date = req.due_date
+    if req.estimated_duration_min is not None:
+        task.estimated_duration_min = req.estimated_duration_min
+    if req.minimum_contiguous_block_min is not None:
+        task.minimum_contiguous_block_min = req.minimum_contiguous_block_min
+    if req.requires_power_isolation is not None:
+        task.requires_power_isolation = req.requires_power_isolation
+    if req.can_run_parallel is not None:
+        task.can_run_parallel = req.can_run_parallel
+    if req.operational_notes is not None:
+        task.operational_notes = req.operational_notes
+    if req.status is not None:
+        task.status = req.status
+
+    # Recalculate priority
+    task.priority_score = compute_priority_score(task)
+
+    db.commit()
+    db.refresh(task)
+
+    return {
+        "status": "success",
+        "id": str(task.id),
+        "task_code": task.task_code,
+        "priority_score": task.priority_score,
+        "message": f"Maintenance work {task.task_code} updated successfully.",
+    }
+
+
+@router.post("/{task_id}/duplicate")
+def duplicate_task(task_id: str, db: Session = Depends(get_db)):
+    """
+    Duplicate an existing maintenance request with a new task code.
+    """
+    orig = db.query(MaintenanceTask).filter(MaintenanceTask.id == task_id).first()
+    if not orig:
+        orig = db.query(MaintenanceTask).filter(MaintenanceTask.task_code == task_id).first()
+    if not orig:
+        raise HTTPException(status_code=404, detail="Maintenance task not found")
+
+    import uuid
+    dept_code = orig.department.code if orig.department else "GEN"
+    seq_count = db.query(MaintenanceTask).filter(MaintenanceTask.department_id == orig.department_id).count() + 1
+    new_code = f"{dept_code}-{seq_count:04d}"
+
+    clone = MaintenanceTask(
+        id=uuid.uuid4(),
+        task_code=new_code,
+        department_id=orig.department_id,
+        section_id=orig.section_id,
+        asset_id=orig.asset_id,
+        maintenance_type=f"{orig.maintenance_type} (Copy)",
+        severity=orig.severity,
+        detected_at=datetime.utcnow(),
+        due_date=orig.due_date,
+        estimated_duration_min=orig.estimated_duration_min,
+        minimum_contiguous_block_min=orig.minimum_contiguous_block_min,
+        requires_power_isolation=orig.requires_power_isolation,
+        can_run_parallel=orig.can_run_parallel,
+        status="Pending",
+        description=orig.description,
+        operational_notes=f"Cloned from {orig.task_code}",
+        source="Manual",
+    )
+    clone.priority_score = compute_priority_score(clone)
+
+    db.add(clone)
+    db.commit()
+    db.refresh(clone)
+
+    return {
+        "status": "success",
+        "new_task_id": str(clone.id),
+        "new_task_code": clone.task_code,
+        "message": f"Task duplicated as {clone.task_code}",
+    }
+
+
+@router.post("/{task_id}/defer")
+def defer_task(task_id: str, req: TaskDeferRequest, db: Session = Depends(get_db)):
+    """
+    Defer a maintenance request with operational justification and new target date.
+    """
+    task = db.query(MaintenanceTask).filter(MaintenanceTask.id == task_id).first()
+    if not task:
+        task = db.query(MaintenanceTask).filter(MaintenanceTask.task_code == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Maintenance task not found")
+
+    task.status = "Deferred"
+    task.deferred_reason = req.reason
+    task.deferred_until = req.new_target_date
+    task.due_date = req.new_target_date
+    task.priority_score = compute_priority_score(task)
+
+    db.commit()
+    return {
+        "status": "success",
+        "task_id": str(task.id),
+        "task_code": task.task_code,
+        "status_now": task.status,
+        "deferred_until": task.deferred_until.isoformat(),
+        "reason": task.deferred_reason,
+    }
+
+
+@router.post("/{task_id}/complete")
+def complete_task(task_id: str, req: TaskCompleteRequest, db: Session = Depends(get_db)):
+    """
+    Mark maintenance task completed with completion timestamp and operational log.
+    """
+    task = db.query(MaintenanceTask).filter(MaintenanceTask.id == task_id).first()
+    if not task:
+        task = db.query(MaintenanceTask).filter(MaintenanceTask.task_code == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Maintenance task not found")
+
+    task.status = "Completed"
+    task.completed_at = req.completion_time or datetime.utcnow()
+    task.completion_notes = req.note or "Work verified and certified by Section Engineer"
+
+    db.commit()
+    return {
+        "status": "success",
+        "task_id": str(task.id),
+        "task_code": task.task_code,
+        "status_now": task.status,
+        "completed_at": task.completed_at.isoformat(),
+    }
+
+
+@router.delete("/{task_id}")
+def delete_task(task_id: str, db: Session = Depends(get_db)):
+    """
+    Delete a maintenance task from database.
+    """
+    task = db.query(MaintenanceTask).filter(MaintenanceTask.id == task_id).first()
+    if not task:
+        task = db.query(MaintenanceTask).filter(MaintenanceTask.task_code == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Maintenance task not found")
+
+    db.delete(task)
+    db.commit()
+    return {"status": "success", "message": f"Maintenance task {task_id} deleted"}
+
+
+@router.post("/emergency")
+def create_emergency_task(
+    department_code: str = Query("ENG", description="ENG | TRD | SNT"),
+    section_id: str = Query(..., description="Section ID"),
+    maintenance_type: str = Query("Emergency Track Fracture / OHE Snap", description="Defect description"),
+    duration_min: int = Query(90, description="Duration in minutes"),
+    db: Session = Depends(get_db),
+):
+    """
+    Emergency maintenance creation:
+    Immediately creates a Critical task detected right now, triggering priority recalculation.
+    """
+    req = TaskCreateRequest(
+        department_code=department_code,
+        section_id=section_id,
+        maintenance_type=maintenance_type,
+        severity="Critical",
+        detected_at=datetime.utcnow(),
+        due_date=datetime.utcnow() + timedelta(hours=6),
+        estimated_duration_min=duration_min,
+        minimum_contiguous_block_min=duration_min,
+        requires_power_isolation=(department_code == "TRD"),
+        operational_notes="EMERGENCY REPORT: Requires immediate possession slot",
+        status="Pending",
+        source="Manual",
+    )
+    return create_task(req, db)
+
+
+@router.post("/import-csv")
+def import_csv_tasks(payload: TaskImportBatch, db: Session = Depends(get_db)):
+    """
+    Bulk import maintenance tasks from structured table or CSV parse.
+    """
+    created = []
+    for r in payload.tasks:
+        try:
+            d_due = datetime.fromisoformat(r.due_date.replace("Z", "+00:00"))
+        except Exception:
+            d_due = datetime.utcnow() + timedelta(days=3)
+
+        req = TaskCreateRequest(
+            department_code=r.department,
+            section_id=r.section,
+            maintenance_type=r.maintenance_type,
+            severity=r.severity,
+            due_date=d_due,
+            estimated_duration_min=r.duration_min,
+            minimum_contiguous_block_min=r.duration_min,
+            requires_power_isolation=r.requires_power_isolation,
+            description=r.description,
+            status="Pending",
+            source="CSV Import",
+        )
+        try:
+            res = create_task(req, db)
+            created.append(res["task_code"])
+        except Exception as e:
+            continue
+
+    return {
+        "status": "success",
+        "imported_count": len(created),
+        "task_codes": created,
+        "message": f"Successfully imported {len(created)} tasks.",
+    }
+

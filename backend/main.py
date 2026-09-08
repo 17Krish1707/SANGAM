@@ -10,9 +10,11 @@ from backend.database import init_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Auto-create tables on startup
     init_db()
     yield
+
+# Auto-migrate / ensure tables and columns on module load
+init_db()
 
 app = FastAPI(
     title="SANGAM API",
@@ -31,7 +33,7 @@ app.add_middleware(
 )
 
 
-from backend.routers import corridor, tasks, sections, plans, kpis
+from backend.routers import corridor, tasks, sections, plans, kpis, resources, rules
 from backend.routers.conflicts import router as conflicts_router
 
 app.include_router(corridor.router)
@@ -40,6 +42,8 @@ app.include_router(sections.router)
 app.include_router(plans.router)
 app.include_router(kpis.router)
 app.include_router(conflicts_router)
+app.include_router(resources.router)
+app.include_router(rules.router)
 
 
 @app.get("/health")

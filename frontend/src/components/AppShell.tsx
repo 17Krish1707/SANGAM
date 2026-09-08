@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import React from 'react';
+import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Wrench,
@@ -11,8 +11,7 @@ import {
   CheckSquare,
   FileText,
   Database,
-  ChevronDown,
-  ChevronRight,
+  Clock,
 } from 'lucide-react';
 import DemoJourneyDrawer from './DemoJourneyDrawer';
 
@@ -23,114 +22,108 @@ interface NavItem {
   children?: { label: string; to: string }[];
 }
 
-const NAV_ITEMS: NavItem[] = [
+interface NavCategory {
+  title: string;
+  items: NavItem[];
+}
+
+const NAV_SECTIONS: NavCategory[] = [
   {
-    label: 'Operations Overview',
-    icon: <LayoutDashboard className="w-4 h-4" />,
-    to: '/',
-  },
-  {
-    label: 'Maintenance Demand',
-    icon: <Wrench className="w-4 h-4" />,
-    children: [
-      { label: 'All Tasks Register', to: '/maintenance/all' },
-      { label: 'Critical Defects', to: '/maintenance/critical' },
-      { label: 'Overdue Work',     to: '/maintenance/overdue' },
+    title: 'OVERVIEW',
+    items: [
+      {
+        label: 'Operations Overview',
+        icon: <LayoutDashboard className="w-4 h-4" />,
+        to: '/',
+      },
     ],
   },
   {
-    label: 'Corridor Capacity',
-    icon: <Train className="w-4 h-4" />,
-    to: '/corridor',
-  },
-  {
-    label: 'Block Planning',
-    icon: <Calendar className="w-4 h-4" />,
-    children: [
-      { label: 'Planning Workbench ★', to: '/planning/workbench' },
-      { label: 'Weekly Plan',         to: '/planning/weekly' },
-      { label: 'Monthly Plan',        to: '/planning/monthly' },
-      { label: 'Gantt View',          to: '/planning/gantt' },
+    title: 'PLANNING INPUTS',
+    items: [
+      {
+        label: 'Maintenance Work',
+        icon: <Wrench className="w-4 h-4" />,
+        to: '/maintenance',
+      },
+      {
+        label: 'Train & Corridor Data',
+        icon: <Train className="w-4 h-4" />,
+        to: '/corridor-data',
+      },
+      {
+        label: 'Resources',
+        icon: <CheckSquare className="w-4 h-4" />,
+        to: '/resources',
+      },
     ],
   },
   {
-    label: 'Conflicts & Constraints',
-    icon: <AlertTriangle className="w-4 h-4" />,
-    to: '/conflicts',
+    title: 'BLOCK PLANNING',
+    items: [
+      {
+        label: 'Create Block Plan',
+        icon: <Calendar className="w-4 h-4" />,
+        to: '/planning/create',
+      },
+      {
+        label: 'Proposed Plan',
+        icon: <Clock className="w-4 h-4" />,
+        to: '/planning/proposed',
+      },
+      {
+        label: 'Compare Plans',
+        icon: <GitCompare className="w-4 h-4" />,
+        to: '/planning/compare',
+      },
+    ],
   },
   {
-    label: 'Re-planning',
-    icon: <RotateCcw className="w-4 h-4" />,
-    to: '/planning/replan',
+    title: 'OPERATIONS',
+    items: [
+      {
+        label: 'Conflicts & Exceptions',
+        icon: <AlertTriangle className="w-4 h-4" />,
+        to: '/operations/conflicts',
+      },
+      {
+        label: 'Approved Blocks',
+        icon: <CheckSquare className="w-4 h-4" />,
+        to: '/operations/approved',
+      },
+      {
+        label: 'Operational Re-plan',
+        icon: <RotateCcw className="w-4 h-4" />,
+        to: '/operations/replan',
+      },
+    ],
   },
   {
-    label: 'Plan Comparison',
-    icon: <GitCompare className="w-4 h-4" />,
-    to: '/planning/compare',
+    title: 'ADMIN / DATA',
+    items: [
+      {
+        label: 'Data Sources',
+        icon: <Database className="w-4 h-4" />,
+        to: '/data-sources',
+      },
+      {
+        label: 'Planning Rules',
+        icon: <FileText className="w-4 h-4" />,
+        to: '/rules',
+      },
+    ],
   },
   {
-    label: 'Approvals Desk',
-    icon: <CheckSquare className="w-4 h-4" />,
-    to: '/approvals',
-  },
-  {
-    label: 'Planning Reports',
-    icon: <FileText className="w-4 h-4" />,
-    to: '/reports',
-  },
-  {
-    label: 'Data Sources',
-    icon: <Database className="w-4 h-4" />,
-    to: '/data-sources',
+    title: 'REPORTS',
+    items: [
+      {
+        label: 'Sanction Reports',
+        icon: <FileText className="w-4 h-4" />,
+        to: '/reports',
+      },
+    ],
   },
 ];
-
-function NavGroup({ item }: { item: NavItem }) {
-  const location = useLocation();
-  const isChildActive = item.children?.some((c) => location.pathname.startsWith(c.to)) ?? false;
-  const [open, setOpen] = useState(isChildActive);
-
-  return (
-    <div>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className={`
-          w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium
-          transition-colors duration-100
-          ${isChildActive
-            ? 'text-accent font-semibold bg-accent-tint'
-            : 'text-text-secondary hover:text-text-primary hover:bg-panel'}
-        `}
-        aria-expanded={open}
-      >
-        <span className="flex items-center gap-2.5">
-          <span className={isChildActive ? 'text-accent' : 'text-text-secondary'}>{item.icon}</span>
-          {item.label}
-        </span>
-        {open ? <ChevronDown className="w-3.5 h-3.5 text-text-secondary" /> : <ChevronRight className="w-3.5 h-3.5 text-text-secondary" />}
-      </button>
-
-      {open && (
-        <div className="mt-0.5 ml-4 pl-3 border-l border-border space-y-0.5">
-          {item.children!.map((child) => (
-            <NavLink
-              key={child.to}
-              to={child.to}
-              className={({ isActive }) => `
-                block px-2 py-1.5 rounded-md text-xs transition-colors duration-100
-                ${isActive
-                  ? 'text-accent font-bold bg-accent-tint border-r-2 border-accent'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-panel'}
-              `}
-            >
-              {child.label}
-            </NavLink>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function NavSingleItem({ item }: { item: NavItem }) {
   return (
@@ -184,14 +177,19 @@ export default function AppShell({ children }: AppShellProps) {
         </div>
 
         {/* Navigation list */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-0.5" aria-label="Main navigation">
-          {NAV_ITEMS.map((item) =>
-            item.children ? (
-              <NavGroup key={item.label} item={item} />
-            ) : (
-              <NavSingleItem key={item.label} item={item} />
-            )
-          )}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-3.5" aria-label="Main navigation">
+          {NAV_SECTIONS.map((sec) => (
+            <div key={sec.title} className="space-y-1">
+              <div className="px-3 pt-1 text-[9px] font-mono uppercase tracking-wider text-slate-400 font-bold">
+                {sec.title}
+              </div>
+              <div className="space-y-0.5">
+                {sec.items.map((item) => (
+                  <NavSingleItem key={item.label} item={item} />
+                ))}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* Footer */}
@@ -207,9 +205,9 @@ export default function AppShell({ children }: AppShellProps) {
       </aside>
 
       {/* ── Main Workspace ── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-panel">
+      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-page" id="main-content">
         {children}
-      </div>
+      </main>
 
       {/* ── Judge Demo Flow Drawer ── */}
       <DemoJourneyDrawer />

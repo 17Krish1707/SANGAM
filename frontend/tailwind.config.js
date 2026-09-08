@@ -7,16 +7,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        page: '#FFFFFF',
-        panel: '#F7F8FA',
-        'text-primary': '#1A2233',
-        'text-secondary': '#5B6472',
+        page: '#F6F8FB',
+        panel: '#FFFFFF',
+        'text-primary': '#172033',
+        'text-secondary': '#667085',
         accent: {
-          DEFAULT: '#1E3A8A',
-          hover: '#1E40AF',
-          tint: '#EEF2FF',
+          DEFAULT: '#173F7A',
+          hover: '#1E4E8C',
+          tint: '#EBF2FA',
         },
-        border: '#E2E5EA',
+        border: '#D9E1EA',
         status: {
           critical: {
             bg: '#FDECEC',
