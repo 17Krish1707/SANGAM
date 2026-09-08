@@ -1,0 +1,7 @@
+{
+  "criticality": 0.30,
+  "overdue_severity": 0.25,
+  "safety_consequence": 0.20,
+  "asset_importance": 0.15,
+  "failure_risk": 0.10
+}
