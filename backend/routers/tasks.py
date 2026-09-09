@@ -67,8 +67,8 @@ def list_tasks(
         query = query.filter(MaintenanceTask.priority_score >= min_priority)
 
     if overdue_only:
-        ref_dt = datetime(2026, 9, 7, 8, 0, 0)
-        query = query.filter(MaintenanceTask.due_date < ref_dt)
+        ref_dt = datetime(2026, 9, 9, 23, 59, 59)
+        query = query.filter(MaintenanceTask.due_date <= ref_dt)
 
     tasks = query.order_by(MaintenanceTask.priority_score.desc().nullslast()).all()
 
@@ -500,6 +500,19 @@ def create_task(req: TaskCreateRequest, db: Session = Depends(get_db)):
         ).first()
         if eq_res:
             db.add(TaskResourceRequirement(id=uuid.uuid4(), task_id=task.id, resource_id=eq_res.id))
+
+    if req.required_resource_ids:
+        for r_id in req.required_resource_ids:
+            r_obj = db.query(Resource).filter(
+                (Resource.id == r_id) | (Resource.name.ilike(f"%{r_id}%"))
+            ).first()
+            if r_obj:
+                existing_req = db.query(TaskResourceRequirement).filter(
+                    TaskResourceRequirement.task_id == task.id,
+                    TaskResourceRequirement.resource_id == r_obj.id
+                ).first()
+                if not existing_req:
+                    db.add(TaskResourceRequirement(id=uuid.uuid4(), task_id=task.id, resource_id=r_obj.id))
 
     db.commit()
     db.refresh(task)

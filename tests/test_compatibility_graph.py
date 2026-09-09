@@ -120,7 +120,7 @@ def test_section_graph_api_endpoint():
     list_res = client.get("/api/sections")
     assert list_res.status_code == 200
     sec_data = list_res.json()
-    assert len(sec_data) >= 5
+    assert len(sec_data) >= 3
 
     # Test compatibility graph endpoint for section
     graph_res = client.get(f"/api/sections/{sec_id}/compatibility-graph")

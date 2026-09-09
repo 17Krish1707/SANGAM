@@ -20,7 +20,7 @@ function getMonday(iso: string) {
   d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day)); return d.toISOString().split('T')[0];
 }
 
-const DEMO_TODAY = '2026-09-07';
+const OPERATING_TODAY = '2026-09-07';
 const DEPTS = ['ENG', 'TRD', 'SNT'] as const;
 type Dept = typeof DEPTS[number];
 
@@ -104,7 +104,7 @@ export default function MonthlyPlan() {
     if (!runId) { setNoRun(true); return; }
     setLoading(true); setNoRun(false);
     getPlan(runId)
-      .then((plan) => setRows(buildWeekRows(plan.blocks, DEMO_TODAY)))
+      .then((plan) => setRows(buildWeekRows(plan.blocks, OPERATING_TODAY)))
       .catch(() => setNoRun(true))
       .finally(() => setLoading(false));
   }, [runId]);

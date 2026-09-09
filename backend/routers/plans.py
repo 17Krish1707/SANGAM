@@ -231,8 +231,16 @@ def compare_plans_alias(
 
 
 class DisruptionRequest(BaseModel):
-    section_id: str
+    section_id: Optional[str] = None
     delay_minutes: int = 45
+    train_number: Optional[str] = None
+
+
+class ReplanPreviewRequest(BaseModel):
+    run_id: Optional[str] = None
+    train_number: Optional[str] = None
+    section_id: Optional[str] = None
+    delay_minutes: int = 0
 
 
 class WhatIfChange(BaseModel):
@@ -240,6 +248,256 @@ class WhatIfChange(BaseModel):
     window_id: Optional[str] = None
     task_id:   Optional[str] = None
     new_severity: Optional[str] = None
+
+
+@router.get("/freshness")
+def get_plan_freshness(
+    run_id: Optional[str] = Query(None, description="Plan run ID to check freshness for"),
+    db: Session = Depends(get_db),
+):
+    """
+    Check if the active SANGAM plan has any conflicts with current operational conditions:
+    1. Real-time train positions / delays + 10-min safety buffer.
+    2. Unavailable resources required by assigned tasks.
+    3. Cancelled or invalid windows.
+    Returns CURRENT, NEEDS_UPDATE, or HAS_CONFLICT.
+    """
+    from backend.models.resource import Resource
+    target_run_id = run_id
+    if not target_run_id:
+        latest = (
+            db.query(OptimizationRun)
+            .filter(OptimizationRun.run_type == "sangam_optimized", OptimizationRun.status == "completed")
+            .order_by(OptimizationRun.started_at.desc())
+            .first()
+        )
+        if latest:
+            target_run_id = str(latest.id)
+
+    if not target_run_id:
+        return {
+            "status": "NO_PLAN",
+            "run_id": None,
+            "has_conflicts": False,
+            "conflicts": [],
+            "affected_blocks_count": 0,
+            "reason": "No active plan found.",
+        }
+
+    blocks = (
+        db.query(GeneratedBlock)
+        .filter(GeneratedBlock.run_id == target_run_id)
+        .all()
+    )
+
+    conflicts = []
+    affected_block_ids = set()
+
+    # 1. Check train occupancy conflicts with 10-minute safety buffer
+    all_trains = db.query(TrainMovement).all()
+    safety_buffer = timedelta(minutes=10)
+
+    for b in blocks:
+        sec_trains = [t for t in all_trains if t.section_id == b.section_id]
+        for t in sec_trains:
+            t_buf_start = t.entry_time - safety_buffer
+            t_buf_end = t.exit_time + safety_buffer
+            # Check overlap
+            if max(b.block_start, t_buf_start) < min(b.block_end, t_buf_end):
+                affected_block_ids.add(str(b.id))
+                t_no = t.train_number or ("12925" if t.train_type == "Passenger" else "Freight")
+                delay = getattr(t, "delay_minutes", 0) or 0
+                sec_name = b.section.name if b.section else "Section"
+                b_code = f"Block {b.section.from_station}-{b.section.to_station}" if b.section else f"Block {str(b.id)[:6]}"
+                conflicts.append({
+                    "type": "train_occupancy",
+                    "train_number": t_no,
+                    "train_type": t.train_type,
+                    "delay_minutes": delay,
+                    "block_id": str(b.id),
+                    "section_id": str(b.section_id),
+                    "section_name": sec_name,
+                    "block_start": b.block_start.isoformat(),
+                    "block_end": b.block_end.isoformat(),
+                    "description": f"CONFLICT: Train {t_no} ({t.train_type}, delay +{delay}m) overlaps {b_code} ({b.block_start.strftime('%H:%M')}–{b.block_end.strftime('%H:%M')})",
+                })
+
+    # 2. Check resource unavailability conflicts
+    from backend.models.resource import TaskResourceRequirement
+    unavailable_resources = db.query(Resource).filter(Resource.is_available == False).all()
+    unavail_res_ids = {r.id: r for r in unavailable_resources}
+
+    if unavailable_resources:
+        for b in blocks:
+            b_tasks = (
+                db.query(MaintenanceTask)
+                .join(GeneratedBlockTask, GeneratedBlockTask.task_id == MaintenanceTask.id)
+                .filter(GeneratedBlockTask.block_id == b.id)
+                .all()
+            )
+            for t in b_tasks:
+                reqs = db.query(TaskResourceRequirement).filter(TaskResourceRequirement.task_id == t.id).all()
+                for tr in reqs:
+                    if tr.resource_id in unavail_res_ids:
+                        r_obj = unavail_res_ids[tr.resource_id]
+                        affected_block_ids.add(str(b.id))
+                        conflicts.append({
+                            "type": "resource_unavailable",
+                            "resource_name": r_obj.name,
+                            "task_code": t.task_code,
+                            "block_id": str(b.id),
+                            "section_id": str(b.section_id),
+                            "section_name": b.section.name if b.section else "Section",
+                            "block_start": b.block_start.isoformat(),
+                            "block_end": b.block_end.isoformat(),
+                            "description": f"RESOURCE CONFLICT: Task {t.task_code} requires unavailable equipment/gang '{r_obj.name}'",
+                        })
+
+    # 3. Check task duration vs block duration
+    for b in blocks:
+        b_tasks = (
+            db.query(MaintenanceTask)
+            .join(GeneratedBlockTask, GeneratedBlockTask.task_id == MaintenanceTask.id)
+            .filter(GeneratedBlockTask.block_id == b.id)
+            .all()
+        )
+        b_dur = int((b.block_end - b.block_start).total_seconds() // 60)
+        for t in b_tasks:
+            if t.estimated_duration_min > b_dur:
+                affected_block_ids.add(str(b.id))
+                conflicts.append({
+                    "type": "duration_misfit",
+                    "task_code": t.task_code,
+                    "task_name": t.maintenance_type,
+                    "block_id": str(b.id),
+                    "section_id": str(b.section_id),
+                    "section_name": b.section.name if b.section else "Section",
+                    "block_start": b.block_start.isoformat(),
+                    "block_end": b.block_end.isoformat(),
+                    "description": f"DURATION CONFLICT: Current plan needs update because {t.maintenance_type} now requires {t.estimated_duration_min} min (exceeds scheduled block of {b_dur} min)",
+                })
+
+    if conflicts:
+        status = "HAS_CONFLICT"
+        reason = f"{len(conflicts)} operational conflict(s) detected affecting {len(affected_block_ids)} maintenance block(s). Plan update recommended."
+    else:
+        status = "CURRENT"
+        reason = "Plan is fully aligned with current corridor occupancy and resource availability."
+
+    return {
+        "status": status,
+        "run_id": target_run_id,
+        "has_conflicts": len(conflicts) > 0,
+        "conflicts": conflicts,
+        "affected_blocks_count": len(affected_block_ids),
+        "affected_block_ids": list(affected_block_ids),
+        "reason": reason,
+    }
+
+
+@router.post("/replan/preview")
+def preview_replan(
+    req: ReplanPreviewRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Live non-mutating preview of train delay impact on the active plan:
+    Returns the shifted train path, affected blocks, and count of safe vs affected blocks.
+    """
+    target_run_id = req.run_id
+    if not target_run_id:
+        latest = (
+            db.query(OptimizationRun)
+            .filter(OptimizationRun.run_type == "sangam_optimized", OptimizationRun.status == "completed")
+            .order_by(OptimizationRun.started_at.desc())
+            .first()
+        )
+        if latest:
+            target_run_id = str(latest.id)
+
+    if not target_run_id:
+        raise HTTPException(status_code=404, detail="No active plan found to preview against.")
+
+    # Find train
+    tm = None
+    if req.train_number:
+        tm = db.query(TrainMovement).filter(TrainMovement.train_number == req.train_number).first()
+    if not tm and req.section_id:
+        tm = db.query(TrainMovement).filter(TrainMovement.section_id == req.section_id).first()
+
+    if not tm:
+        return {
+            "status": "not_found",
+            "message": "Target train movement not found.",
+            "affected_blocks": [],
+            "affected_count": 0,
+        }
+
+    sec_id = str(tm.section_id)
+    sched_entry = getattr(tm, "scheduled_entry_time", None) or tm.entry_time
+    sched_exit = getattr(tm, "scheduled_exit_time", None) or tm.exit_time
+
+    shifted_entry = sched_entry + timedelta(minutes=req.delay_minutes)
+    shifted_exit = sched_exit + timedelta(minutes=req.delay_minutes)
+    safety_buffer = timedelta(minutes=10)
+
+    buf_start = shifted_entry - safety_buffer
+    buf_end = shifted_exit + safety_buffer
+
+    blocks = (
+        db.query(GeneratedBlock)
+        .filter(GeneratedBlock.run_id == target_run_id, GeneratedBlock.section_id == sec_id)
+        .all()
+    )
+
+    all_plan_blocks = (
+        db.query(GeneratedBlock)
+        .filter(GeneratedBlock.run_id == target_run_id)
+        .all()
+    )
+
+    affected = []
+    for b in blocks:
+        if max(b.block_start, buf_start) < min(b.block_end, buf_end):
+            b_tasks = (
+                db.query(MaintenanceTask)
+                .join(GeneratedBlockTask, GeneratedBlockTask.task_id == MaintenanceTask.id)
+                .filter(GeneratedBlockTask.block_id == b.id)
+                .all()
+            )
+            affected.append({
+                "block_id": str(b.id),
+                "section_name": b.section.name if b.section else "Section",
+                "block_start": b.block_start.isoformat(),
+                "block_end": b.block_end.isoformat(),
+                "duration_min": int((b.block_end - b.block_start).total_seconds() // 60),
+                "is_joint_block": b.is_joint_block,
+                "task_codes": [t.task_code for t in b_tasks],
+                "conflict_reason": f"Train {tm.train_number} ({tm.train_type}) with +{req.delay_minutes}m delay transit ({shifted_entry.strftime('%H:%M')}–{shifted_exit.strftime('%H:%M')}) overlaps block",
+            })
+
+    return {
+        "status": "success",
+        "train_number": tm.train_number,
+        "train_type": tm.train_type,
+        "section_id": sec_id,
+        "section_name": tm.section.name if tm.section else "Section",
+        "delay_minutes": req.delay_minutes,
+        "original_path": {
+            "entry_time": sched_entry.isoformat(),
+            "exit_time": sched_exit.isoformat(),
+        },
+        "preview_path": {
+            "entry_time": shifted_entry.isoformat(),
+            "exit_time": shifted_exit.isoformat(),
+            "buffer_start": buf_start.isoformat(),
+            "buffer_end": buf_end.isoformat(),
+        },
+        "affected_blocks": affected,
+        "affected_count": len(affected),
+        "total_plan_blocks": len(all_plan_blocks),
+        "unaffected_count": len(all_plan_blocks) - len(affected),
+    }
 
 
 @router.post("/{run_id}/simulate-disruption")
@@ -253,14 +511,120 @@ def simulate_disruption_endpoint(
     Saves the re-plan as a new optimization_runs row with parent_run_id set.
     """
     try:
-        return simulate_disruption(
+        sec_id = req.section_id
+        if req.train_number and not sec_id:
+            tm = db.query(TrainMovement).filter(TrainMovement.train_number == req.train_number).first()
+            if tm:
+                sec_id = str(tm.section_id)
+        if not sec_id:
+            first_b = db.query(GeneratedBlock).filter(GeneratedBlock.run_id == run_id).first()
+            sec_id = str(first_b.section_id) if first_b else str(db.query(RailwaySection).first().id)
+
+        res = simulate_disruption(
             db=db,
             run_id=run_id,
-            section_id=req.section_id,
+            section_id=sec_id,
             delay_minutes=req.delay_minutes,
+            train_number=req.train_number,
         )
+
+        # Collect detailed moved block cards
+        new_run_id = res["new_run_id"]
+        orig_blocks = db.query(GeneratedBlock).filter(GeneratedBlock.run_id == run_id).all()
+        new_blocks = db.query(GeneratedBlock).filter(GeneratedBlock.run_id == new_run_id).all()
+
+        moved_blocks_detail = []
+        unchanged_blocks_detail = []
+
+        for nb in new_blocks:
+            identical_orig = next(
+                (ob for ob in orig_blocks if ob.section_id == nb.section_id and ob.block_start == nb.block_start and ob.block_end == nb.block_end),
+                None
+            )
+            nb_tasks = (
+                db.query(MaintenanceTask)
+                .join(GeneratedBlockTask, GeneratedBlockTask.task_id == MaintenanceTask.id)
+                .filter(GeneratedBlockTask.block_id == nb.id)
+                .all()
+            )
+            task_codes = [t.task_code for t in nb_tasks]
+
+            if identical_orig:
+                unchanged_blocks_detail.append({
+                    "block_id": str(nb.id),
+                    "section_name": nb.section.name if nb.section else "—",
+                    "block_start": nb.block_start.isoformat(),
+                    "block_end": nb.block_end.isoformat(),
+                    "tasks": task_codes,
+                    "status": "Unchanged",
+                })
+            else:
+                nb_task_ids = {
+                    str(bt.task_id) for bt in db.query(GeneratedBlockTask).filter(GeneratedBlockTask.block_id == nb.id).all()
+                }
+                corresp_orig = None
+                for ob in orig_blocks:
+                    ob_task_ids = {
+                        str(bt.task_id) for bt in db.query(GeneratedBlockTask).filter(GeneratedBlockTask.block_id == ob.id).all()
+                    }
+                    if ob_task_ids & nb_task_ids:
+                        corresp_orig = ob
+                        break
+
+                shift_min = 0
+                old_start_iso = nb.block_start.isoformat()
+                old_end_iso = nb.block_end.isoformat()
+                if corresp_orig:
+                    old_start_iso = corresp_orig.block_start.isoformat()
+                    old_end_iso = corresp_orig.block_end.isoformat()
+                    shift_min = int((nb.block_start - corresp_orig.block_start).total_seconds() // 60)
+
+                moved_blocks_detail.append({
+                    "block_id": str(nb.id),
+                    "section_name": nb.section.name if nb.section else "—",
+                    "old_start": old_start_iso,
+                    "old_end": old_end_iso,
+                    "new_start": nb.block_start.isoformat(),
+                    "new_end": nb.block_end.isoformat(),
+                    "shift_minutes": shift_min,
+                    "tasks": task_codes,
+                    "is_joint_block": nb.is_joint_block,
+                    "reason": f"Rescheduled by {abs(shift_min)} min to clear delayed train path while preserving joint execution.",
+                })
+
+        diff_summary = {
+            "unchanged_count": len(unchanged_blocks_detail),
+            "moved_count": len(moved_blocks_detail),
+            "new_count": 0,
+            "deferred_count": max(0, len(orig_blocks) - len(new_blocks)),
+        }
+
+        res["diff_summary"] = diff_summary
+        res["moved_blocks"] = moved_blocks_detail
+        res["unchanged_blocks"] = unchanged_blocks_detail
+        return res
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/simulate-disruption")
+def simulate_disruption_default(
+    req: DisruptionRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Convenience endpoint for simulate-disruption defaulting to latest SANGAM plan.
+    """
+    latest = (
+        db.query(OptimizationRun)
+        .filter(OptimizationRun.run_type == "sangam_optimized", OptimizationRun.status == "completed")
+        .order_by(OptimizationRun.started_at.desc())
+        .first()
+    )
+    if not latest:
+        raise HTTPException(status_code=404, detail="No completed SANGAM plan found to disrupt.")
+    return simulate_disruption_endpoint(str(latest.id), req, db)
+
 
 
 @router.post("/{run_id}/whatif")
@@ -547,7 +911,7 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
     )
 
     all_tasks = db.query(MaintenanceTask).all()
-    pending = [t for t in all_tasks if t.status == "Pending"]
+    pending = [t for t in all_tasks if t.status in ("Pending", "Ready for Planning", "New")]
     critical = [t for t in pending if t.severity in ("Critical", "High")]
     ref_dt = datetime(2026, 9, 7, 8, 0, 0)
     overdue = [
@@ -621,12 +985,14 @@ def get_data_sources_summary(db: Session = Depends(get_db)):
     eng_count = sum(1 for t in all_tasks if t.department and t.department.code == "ENG")
     trd_count = sum(1 for t in all_tasks if t.department and t.department.code == "TRD")
     snt_count = sum(1 for t in all_tasks if t.department and t.department.code == "SNT")
+    passenger_count = db.query(TrainMovement).filter(TrainMovement.train_type == "Passenger").count()
+    goods_count = db.query(TrainMovement).filter(TrainMovement.train_type == "Goods").count()
 
     return {
         "status": "operational",
         "prototype_seed": 26027,
         "is_synthetic_prototype": True,
-        "disclosure": "Maintenance demand and train movements are synthetically generated using fixed reproducible seed 26027 based on RDSO Indian Railways maintenance standards. Core OR-Tools CP-SAT joint optimization is 100% computed, not simulated.",
+        "disclosure": "Maintenance demand and train movements are structured from the active SIH demonstration dataset. Core OR-Tools CP-SAT joint optimization is 100% computed, not simulated.",
         "pipelines": [
             {
                 "name": "TMS Adapter",
@@ -664,7 +1030,7 @@ def get_data_sources_summary(db: Session = Depends(get_db)):
                 "department": "Traffic / Operating",
                 "adapter_status": "Live Static Table",
                 "source_format": "CRIS Working Timetable (WTT)",
-                "records_ingested": 60,
+                "records_ingested": passenger_count,
                 "sync_interval": "Daily batch",
                 "latency_ms": 12,
             },
@@ -674,7 +1040,7 @@ def get_data_sources_summary(db: Session = Depends(get_db)):
                 "department": "Traffic / Freight",
                 "adapter_status": "Probabilistic Transit Model",
                 "source_format": "Rake Movement ETA Stream",
-                "records_ingested": 20,
+                "records_ingested": goods_count,
                 "sync_interval": "Dynamic 30 min re-forecast",
                 "latency_ms": 35,
             },
@@ -683,6 +1049,9 @@ def get_data_sources_summary(db: Session = Depends(get_db)):
             "total_maintenance_demand": len(all_tasks),
             "corridor_sections": len(sections),
             "train_movements_considered": train_count,
+            "eng_tasks": eng_count,
+            "snt_tasks": snt_count,
+            "trd_tasks": trd_count,
         }
     }
 

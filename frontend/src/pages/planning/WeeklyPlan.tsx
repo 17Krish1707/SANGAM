@@ -29,8 +29,8 @@ function getMonday(iso: string): string {
   return d.toISOString().split('T')[0];
 }
 
-const DEMO_TODAY  = '2026-09-07';
-const WEEK_START  = getMonday(DEMO_TODAY);
+const OPERATING_TODAY = '2026-09-07';
+const WEEK_START      = getMonday(OPERATING_TODAY);
 const DAY_LABELS  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function buildWeekDays(monday: string): { label: string; iso: string }[] {

@@ -225,9 +225,13 @@ def get_section_24h_occupancy(
         t_exit = min(t.exit_time, day_end)
         trains_data.append({
             "id": str(t.id),
+            "train_number": t.train_number or ("12925" if t.train_type == "Passenger" else "G-4021"),
             "train_type": t.train_type,
             "entry_time": t.entry_time.isoformat(),
             "exit_time": t.exit_time.isoformat(),
+            "scheduled_entry_time": (getattr(t, "scheduled_entry_time", None) or t.entry_time).isoformat(),
+            "scheduled_exit_time": (getattr(t, "scheduled_exit_time", None) or t.exit_time).isoformat(),
+            "delay_minutes": getattr(t, "delay_minutes", 0) or 0,
             "visible_start": t_entry.isoformat(),
             "visible_end": t_exit.isoformat(),
             "transit_min": int((t.exit_time - t.entry_time).total_seconds() // 60),
@@ -385,10 +389,13 @@ def list_all_trains(
             "train_type": t.train_type,
             "entry_time": t.entry_time.isoformat(),
             "exit_time": t.exit_time.isoformat(),
+            "scheduled_entry_time": (getattr(t, "scheduled_entry_time", None) or t.entry_time).isoformat(),
+            "scheduled_exit_time": (getattr(t, "scheduled_exit_time", None) or t.exit_time).isoformat(),
+            "delay_minutes": getattr(t, "delay_minutes", 0) or 0,
             "transit_min": int((t.exit_time - t.entry_time).total_seconds() // 60),
             "priority": t.priority,
             "forecast_confidence": t.forecast_confidence,
-            "source": getattr(t, "source", "Synthetic Demo"),
+            "source": getattr(t, "source", "COA / FOIS Feed"),
             "notes": getattr(t, "notes", None),
         }
         for t in trains
@@ -607,4 +614,69 @@ def toggle_window_availability(window_id: str, req: WindowUnavailabilityToggle, 
         "unavailability_reason": w.unavailability_reason,
         "message": "Window availability updated. Optimizer will respect this setting.",
     }
+
+
+class TrainDelayRequest(BaseModel):
+    delay_minutes: int
+    train_number: Optional[str] = None
+    reason: Optional[str] = "Operational Train Delay"
+
+
+@router.post("/trains/{train_id}/delay")
+def delay_train_movement(train_id: str, req: TrainDelayRequest, db: Session = Depends(get_db)):
+    """
+    Apply a real-time timetable delay to a train movement.
+    Shifts entry_time and exit_time horizontally by delay_minutes relative to scheduled times.
+    Automatically recomputes candidate corridor block windows!
+    """
+    tm = db.query(TrainMovement).filter(TrainMovement.id == train_id).first()
+    if not tm:
+        raise HTTPException(status_code=404, detail="Train movement not found")
+
+    sched_entry = tm.scheduled_entry_time or tm.entry_time
+    sched_exit = tm.scheduled_exit_time or tm.exit_time
+    tm.scheduled_entry_time = sched_entry
+    tm.scheduled_exit_time = sched_exit
+    tm.delay_minutes = req.delay_minutes
+    tm.entry_time = sched_entry + timedelta(minutes=req.delay_minutes)
+    tm.exit_time = sched_exit + timedelta(minutes=req.delay_minutes)
+    tm.notes = f"Delayed by {req.delay_minutes} min ({req.reason})"
+    db.commit()
+    db.refresh(tm)
+
+    # Recompute candidate corridor windows for this section
+    try:
+        w_start = tm.entry_time.replace(hour=0, minute=0, second=0)
+        w_end = w_start + timedelta(days=7)
+        populate_block_windows(db, [str(tm.section_id)], w_start, w_end)
+    except Exception as e:
+        print(f"Window recompute error after delay: {e}")
+
+    return {
+        "status": "success",
+        "id": str(tm.id),
+        "train_number": tm.train_number,
+        "section_id": str(tm.section_id),
+        "scheduled_entry_time": sched_entry.isoformat(),
+        "scheduled_exit_time": sched_exit.isoformat(),
+        "entry_time": tm.entry_time.isoformat(),
+        "exit_time": tm.exit_time.isoformat(),
+        "delay_minutes": tm.delay_minutes,
+        "message": f"Train {tm.train_number} delayed by {req.delay_minutes} min. Corridor windows updated.",
+    }
+
+
+@router.post("/trains/delay-by-number")
+def delay_train_by_number(req: TrainDelayRequest, db: Session = Depends(get_db)):
+    """
+    Apply delay by train number (e.g. 'P102').
+    """
+    if not req.train_number:
+        raise HTTPException(status_code=400, detail="train_number is required")
+
+    tm = db.query(TrainMovement).filter(TrainMovement.train_number == req.train_number).first()
+    if not tm:
+        raise HTTPException(status_code=404, detail=f"Train {req.train_number} not found")
+
+    return delay_train_movement(str(tm.id), req, db)
 

@@ -42,14 +42,14 @@ function addDays(iso: string, n: number): string {
   return d.toISOString().split('T')[0];
 }
 
-const DEMO_TODAY = '2026-09-07';
+const OPERATING_TODAY = '2026-09-07';
 
 export default function PlanGenerator({ onComplete, defaultOpen = false }: PlanGeneratorProps) {
   const [open, setOpen]         = useState(defaultOpen);
   const [sections, setSections] = useState<Section[]>([]);
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [horizon, setHorizon]   = useState<'weekly' | 'monthly'>('weekly');
-  const [startDate, setStartDate] = useState(getMonday(DEMO_TODAY));
+  const [startDate, setStartDate] = useState(getMonday(OPERATING_TODAY));
 
   const endDate = horizon === 'weekly'
     ? addDays(startDate, 7)

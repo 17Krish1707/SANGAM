@@ -23,7 +23,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
-const DEMO_DATE = '2026-09-07';
+const DEFAULT_PLANNING_DATE = '2026-09-07';
 
 export default function PlanningWorkbench() {
   const {
@@ -79,7 +79,7 @@ export default function PlanningWorkbench() {
     setGenerating(true);
     try {
       const resp = await generatePlans({
-        start_date: `${DEMO_DATE}T00:00:00`,
+        start_date: `${DEFAULT_PLANNING_DATE}T00:00:00`,
         horizon: 'weekly',
         objective_profile: selectedObjectiveProfile,
         run_types: ['independent_baseline', 'greedy_baseline', 'sangam_optimized'],

@@ -24,8 +24,8 @@ function getMonday(iso: string) {
   d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day)); return d.toISOString().split('T')[0];
 }
 
-const DEMO_TODAY = '2026-09-07';
-const WEEK_START = getMonday(DEMO_TODAY);
+const OPERATING_TODAY = '2026-09-07';
+const WEEK_START = getMonday(OPERATING_TODAY);
 
 const DEPARTMENTS = [
   { code: 'ENG', label: 'Engineering' },
@@ -103,7 +103,7 @@ export default function GanttView() {
   const [loading, setLoading]     = useState(false);
   const [noRun, setNoRun]         = useState(false);
   const [zoom, setZoom]           = useState<Zoom>('week');
-  const [zoomDay, setZoomDay]     = useState(DEMO_TODAY);
+  const [zoomDay, setZoomDay]     = useState(OPERATING_TODAY);
   const [activeBlock, setActiveBlock] = useState<GeneratedBlock | null>(null);
 
   const activeRunId = runIds[activeRun];

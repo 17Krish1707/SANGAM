@@ -4,9 +4,14 @@ import {
   getPlan,
   getSections,
   generatePlans,
+  getTasks,
+  getAllTrains,
+  getResources,
+  getPlanFreshness,
   type LatestRunsResponse,
   type PlanDetail,
   type Section,
+  type PlanFreshnessResponse,
 } from '../lib/apiClient';
 
 export type ObjectiveProfile = 'balanced' | 'max_availability' | 'min_train_impact';
@@ -33,33 +38,37 @@ interface PlanningContextType {
   isLoadingPlan: boolean;
   isGenerating: boolean;
 
+  // Prerequisite Counts & Stage Readiness
+  tasksCount: number;
+  trainsCount: number;
+  resourcesCount: number;
+  getStageStatus: (stageNum: number) => { isComplete: boolean; reason?: string };
+
   // User Role & Workflow
   userRole: 'Planner' | 'Controller';
   setUserRole: (r: 'Planner' | 'Controller') => void;
   workflowStage: number; // 1: Maintenance, 2: Corridor, 3: Resources, 4: Optimize, 5: Review, 6: Approve
   setWorkflowStage: (s: number) => void;
 
+  // Dynamic Plan Freshness & Conflicts
+  planFreshness: PlanFreshnessResponse | null;
+  checkFreshness: () => Promise<void>;
+
   // Actions
   triggerGenerate: (profile?: ObjectiveProfile) => Promise<void>;
   refreshAll: () => Promise<void>;
-
-  // Demo Journey Helper
-  isDemoJourneyOpen: boolean;
-  setIsDemoJourneyOpen: (open: boolean) => void;
-  currentDemoStep: number;
-  setCurrentDemoStep: (step: number) => void;
 }
 
 const PlanningContext = createContext<PlanningContextType | undefined>(undefined);
 
-export const DEFAULT_DEMO_DATE = '2026-09-07';
+export const DEFAULT_OPERATING_DATE = '2026-09-07';
 export const DEFAULT_CORRIDOR_NAME = 'Station A → Station F (Trunk Route)';
 
 export function PlanningProvider({ children }: { children: React.ReactNode }) {
   const [userRole, setUserRole] = useState<'Planner' | 'Controller'>('Controller');
   const [workflowStage, setWorkflowStage] = useState<number>(1);
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(DEFAULT_DEMO_DATE);
+  const [selectedDate, setSelectedDate] = useState<string>(DEFAULT_OPERATING_DATE);
   const [selectedHorizon, setSelectedHorizon] = useState<HorizonType>('weekly');
   const [selectedObjectiveProfile, setSelectedObjectiveProfile] = useState<ObjectiveProfile>('balanced');
   const [selectedRunType, setSelectedRunType] = useState<string>('sangam_optimized');
@@ -71,21 +80,40 @@ export function PlanningProvider({ children }: { children: React.ReactNode }) {
   const [isLoadingPlan, setIsLoadingPlan] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Demo Journey
-  const [isDemoJourneyOpen, setIsDemoJourneyOpen] = useState(false);
-  const [currentDemoStep, setCurrentDemoStep] = useState(1);
+  // Prerequisite Counts
+  const [tasksCount, setTasksCount] = useState<number>(0);
+  const [trainsCount, setTrainsCount] = useState<number>(0);
+  const [resourcesCount, setResourcesCount] = useState<number>(0);
+  const [planFreshness, setPlanFreshness] = useState<PlanFreshnessResponse | null>(null);
+
+  const checkFreshness = useCallback(async (runId?: string) => {
+    try {
+      const freshness = await getPlanFreshness(runId || activeRunId || undefined);
+      setPlanFreshness(freshness);
+    } catch (err) {
+      console.error('Failed to check plan freshness:', err);
+    }
+  }, [activeRunId]);
 
   // Initial load
   const loadInitial = useCallback(async () => {
     try {
-      const [secList, runs] = await Promise.all([
-        getSections(),
-        getLatestRuns(),
+      const [secList, runs, taskList, trainList, resList, freshness] = await Promise.all([
+        getSections().catch(() => []),
+        getLatestRuns().catch(() => null),
+        getTasks().catch(() => []),
+        getAllTrains().catch(() => []),
+        getResources().catch(() => []),
+        getPlanFreshness().catch(() => null),
       ]);
       setSections(secList);
       setLatestRuns(runs);
+      setTasksCount(taskList.length);
+      setTrainsCount(trainList.length);
+      setResourcesCount(resList.length);
+      if (freshness) setPlanFreshness(freshness);
 
-      const sangamId = runs.sangam_optimized?.run_id;
+      const sangamId = runs?.sangam_optimized?.run_id;
       if (sangamId) {
         setActiveRunId(sangamId);
         setIsLoadingPlan(true);
@@ -97,6 +125,60 @@ export function PlanningProvider({ children }: { children: React.ReactNode }) {
       console.error('Failed to load planning context:', err);
     }
   }, []);
+
+  const getStageStatus = useCallback(
+    (stageNum: number) => {
+      const hasSections = sections.length > 0;
+      const hasTasks = tasksCount > 0;
+      const hasTrains = trainsCount > 0;
+      const hasResources = resourcesCount > 0;
+      const hasPlan = Boolean(latestRuns?.sangam_optimized?.run_id || activePlan);
+      const hasBlocks = Boolean(activePlan?.blocks && activePlan.blocks.length > 0);
+      const hasApprovedBlocks = Boolean(
+        activePlan?.blocks && activePlan.blocks.some((b) => b.approval_status === 'approved')
+      );
+
+      switch (stageNum) {
+        case 1: // Maintenance Demand
+          return {
+            isComplete: hasTasks,
+            reason: hasTasks ? `${tasksCount} Tasks Registered` : 'No Maintenance Tasks in Register',
+          };
+        case 2: // Corridor & Trains
+          return {
+            isComplete: hasSections && hasTrains,
+            reason: !hasSections
+              ? 'No Corridor Sections'
+              : !hasTrains
+              ? 'No Timetable Trains'
+              : `${sections.length} Sections, ${trainsCount} Trains`,
+          };
+        case 3: // Resources
+          return {
+            isComplete: hasResources,
+            reason: hasResources ? `${resourcesCount} Gangs & Machines` : 'No Resources Registered',
+          };
+        case 4: // Create Plan (Optimization)
+          return {
+            isComplete: hasPlan,
+            reason: hasPlan ? 'Optimization Plan Generated' : 'Block Plan Not Yet Generated',
+          };
+        case 5: // Proposed Plan (Review & Edit)
+          return {
+            isComplete: hasBlocks,
+            reason: hasBlocks ? `${activePlan!.blocks.length} Blocks Proposed` : 'No Proposed Blocks in Schedule',
+          };
+        case 6: // Approval Desk (Sanction)
+          return {
+            isComplete: hasApprovedBlocks,
+            reason: hasApprovedBlocks ? 'Possession Blocks Approved' : 'No Blocks Sanctioned Yet',
+          };
+        default:
+          return { isComplete: false, reason: 'Unknown Stage' };
+      }
+    },
+    [sections.length, tasksCount, trainsCount, resourcesCount, latestRuns, activePlan]
+  );
 
   useEffect(() => {
     loadInitial();
@@ -179,12 +261,14 @@ export function PlanningProvider({ children }: { children: React.ReactNode }) {
         activeRunId,
         isLoadingPlan,
         isGenerating,
+        tasksCount,
+        trainsCount,
+        resourcesCount,
+        planFreshness,
+        checkFreshness,
+        getStageStatus,
         triggerGenerate,
         refreshAll,
-        isDemoJourneyOpen,
-        setIsDemoJourneyOpen,
-        currentDemoStep,
-        setCurrentDemoStep,
       }}
     >
       {children}

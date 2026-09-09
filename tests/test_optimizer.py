@@ -100,7 +100,7 @@ def test_optimizer_small_synthetic_scenario():
         window_end=datetime(2026, 9, 7, 13, 30, 0),  # 90 min
         block_type="Maintenance",
         is_available=True,
-        risk_score=0.3,
+        risk_score=0.2,
     )
     w3 = BlockWindow(
         id="opt-win-3",
@@ -109,7 +109,7 @@ def test_optimizer_small_synthetic_scenario():
         window_end=datetime(2026, 9, 7, 16, 30, 0),   # 90 min
         block_type="Maintenance",
         is_available=True,
-        risk_score=0.3,
+        risk_score=0.2,
     )
     windows = [w1, w2, w3]
 

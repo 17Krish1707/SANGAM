@@ -23,7 +23,6 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle2,
-  AlertOctagon,
   ArrowRight,
   Train,
   Wrench,
@@ -32,6 +31,8 @@ import {
   Layers,
   Sparkles,
   Check,
+  RefreshCw,
+  Zap,
 } from 'lucide-react';
 
 export default function Overview() {
@@ -47,46 +48,55 @@ export default function Overview() {
   const [loading, setLoading] = useState(true);
 
   // Section inspector drawer
-  const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [sectionDrawerOpen, setSectionDrawerOpen] = useState(false);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setLoading(true);
-        const [dashData, allTasks, resList, trainList, winList, secList] = await Promise.all([
-          getDashboardSummary().catch(() => ({ latest_runs: {} })),
-          getTasks().catch(() => []),
-          getResources().catch(() => []),
-          getAllTrains().catch(() => []),
-          getAllWindows().catch(() => []),
-          getSections().catch(() => []),
-        ]);
-        setTasks(allTasks);
-        setResources(resList);
-        setTrains(trainList);
-        setAllWindows(winList);
-        setSections(secList);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [dashData, allTasks, resList, trainList, winList, secList] = await Promise.all([
+        getDashboardSummary().catch(() => ({ latest_runs: {} })),
+        getTasks().catch(() => []),
+        getResources().catch(() => []),
+        getAllTrains().catch(() => []),
+        getAllWindows().catch(() => []),
+        getSections().catch(() => []),
+      ]);
+      setTasks(allTasks);
+      setResources(resList);
+      setTrains(trainList);
+      setAllWindows(winList);
+      setSections(secList);
 
-        const optId = (dashData.latest_runs as any)?.sangam_optimized;
-        if (optId) {
-          const plan = await getPlan(optId).catch(() => ({ blocks: [] }));
-          setBlocks(plan.blocks || []);
-        }
-      } catch (err) {
-        console.error('Failed loading overview dashboard:', err);
-      } finally {
-        setLoading(false);
+      const optId = (dashData.latest_runs as any)?.sangam_optimized;
+      if (optId) {
+        const plan = await getPlan(optId).catch(() => ({ blocks: [] }));
+        setBlocks(plan.blocks || []);
       }
+    } catch (err) {
+      console.error('Failed loading overview dashboard:', err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadData();
   }, []);
 
-  const pendingTasks = tasks.filter((t) => t.status === 'Pending' || t.status === 'New');
+  // Total corridor stats linking with Train & Corridor Data
+  const totalLengthKm = sections.reduce((acc, s) => acc + (s.length_km || 0), 0);
+  const passengerTrains = trains.filter((t) => t.train_type === 'Passenger');
+  const freightTrains = trains.filter((t) => t.train_type === 'Goods');
+  const availableWindows = windows.filter((w) => w.is_available);
+  const restrictedWindows = windows.filter((w) => !w.is_available);
+
+  const pendingTasks = tasks.filter((t) => t.status === 'Pending' || t.status === 'New' || t.status === 'Ready for Planning');
   const criticalTasks = pendingTasks.filter((t) => t.severity === 'Critical');
   const overdueTasks = pendingTasks.filter((t) => {
     if (!t.due_date) return false;
-    return new Date(t.due_date) < new Date();
+    const d = new Date(t.due_date);
+    return d < new Date() || d < new Date('2026-09-09T00:00:00');
   });
 
   const unavailableResources = resources.filter((r) => !r.is_available);
@@ -129,22 +139,24 @@ export default function Overview() {
     }
   };
 
-  const handleOpenSection = (secName: string) => {
-    setSelectedSection(secName);
+  const activeSection = sections.find((s) => s.id === selectedSectionId || s.name === selectedSectionId);
+
+  const handleOpenSection = (secId: string) => {
+    setSelectedSectionId(secId);
     setSectionDrawerOpen(true);
   };
 
   const sectionTasks = tasks.filter(
-    (t) => selectedSection && (t.section_name?.includes(selectedSection) || t.section_id === selectedSection)
+    (t) => activeSection && (t.section_id === activeSection.id || t.section_name === activeSection.name)
   );
   const sectionTrains = trains.filter(
-    (tr) => selectedSection && (tr.section_name?.includes(selectedSection) || tr.section_id === selectedSection)
+    (tr) => activeSection && (tr.section_id === activeSection.id || tr.section_name === activeSection.name)
   );
   const sectionWindows = windows.filter(
-    (w) => selectedSection && (w.section_name?.includes(selectedSection) || w.section_id === selectedSection)
+    (w) => activeSection && (w.section_id === activeSection.id || w.section_name === activeSection.name)
   );
   const sectionBlocks = blocks.filter(
-    (b) => selectedSection && (b.section_name?.includes(selectedSection) || b.section_id === selectedSection)
+    (b) => activeSection && (b.section_id === activeSection.id || b.section_name === activeSection.name)
   );
 
   return (
@@ -291,16 +303,33 @@ export default function Overview() {
                 </span>
                 <span>•</span>
                 <span>
-                  <strong className="text-[#172033]">Sections Defined:</strong> {sections.length} sections
+                  <strong className="text-[#172033]">Sections:</strong> {sections.length} defined ({totalLengthKm} km)
                 </span>
                 <span>•</span>
                 <span>
-                  <strong className="text-[#172033]">Total Tasks:</strong> {tasks.length} demands
+                  <strong className="text-[#172033]">Train Traffic:</strong> {trains.length} movements ({passengerTrains.length} Pax / {freightTrains.length} Freight)
+                </span>
+                <span>•</span>
+                <span>
+                  <strong className="text-[#172033]">Candidate Windows:</strong> {windows.length} windows ({availableWindows.length} available)
+                </span>
+                <span>•</span>
+                <span>
+                  <strong className="text-[#172033]">Total Tasks:</strong> {tasks.length} demands ({criticalTasks.length} critical)
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
+              <button
+                onClick={loadData}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md border border-[#D9E1EA] bg-white text-xs font-semibold text-[#172033] hover:bg-slate-50 transition-all shadow-xs cursor-pointer"
+                title="Refresh live data from server"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-[#173F7A] ${loading ? 'animate-spin' : ''}`} />
+                <span>Refresh Live Data</span>
+              </button>
               <button
                 onClick={handleContinuePlanning}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-[#173F7A] text-white font-bold text-xs hover:bg-[#1E4E8C] transition-all shadow-xs cursor-pointer"
@@ -312,13 +341,53 @@ export default function Overview() {
           </div>
         )}
 
-        {/* ── 4 Important Primary Cards ── */}
+        {/* ── 4 Primary Metric Cards Linking Directly to Live Data ── */}
         {!isDatabaseEmpty && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Card 1: Pending Maintenance */}
+            {/* Card 1: Corridor & Train Movements */}
+            <div
+              onClick={() => navigate('/corridor-data')}
+              className="bg-white rounded-lg border border-[#D9E1EA] p-5 shadow-xs hover:border-[#173F7A] transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center justify-between text-xs text-[#667085] font-medium">
+                <span>Corridor & Trains</span>
+                <Train className="w-4 h-4 text-[#173F7A]" />
+              </div>
+              <div className="text-3xl font-black text-[#172033] mt-2 tabular-nums">
+                {trains.length}
+              </div>
+              <div className="text-[11px] text-[#667085] mt-1 flex items-center justify-between">
+                <span>{sections.length} sections · {passengerTrains.length} Pax / {freightTrains.length} Freight</span>
+                <span className="text-[#173F7A] font-semibold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                  Timetable <ArrowRight className="w-3 h-3" />
+                </span>
+              </div>
+            </div>
+
+            {/* Card 2: Candidate Block Windows */}
+            <div
+              onClick={() => navigate('/corridor-data')}
+              className="bg-white rounded-lg border border-[#D9E1EA] p-5 shadow-xs hover:border-[#173F7A] transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center justify-between text-xs text-emerald-700 font-medium">
+                <span>Candidate Windows</span>
+                <Clock className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="text-3xl font-black text-emerald-700 mt-2 tabular-nums">
+                {windows.length}
+              </div>
+              <div className="text-[11px] text-[#667085] mt-1 flex items-center justify-between">
+                <span>{availableWindows.length} available · {restrictedWindows.length} restricted</span>
+                <span className="text-emerald-700 font-semibold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                  Windows <ArrowRight className="w-3 h-3" />
+                </span>
+              </div>
+            </div>
+
+            {/* Card 3: Maintenance Demands */}
             <div
               onClick={() => navigate('/maintenance')}
-              className="bg-white rounded-lg border border-[#D9E1EA] p-5 shadow-xs hover:border-[#173F7A] transition-colors cursor-pointer"
+              className="bg-white rounded-lg border border-[#D9E1EA] p-5 shadow-xs hover:border-[#173F7A] transition-colors cursor-pointer group"
             >
               <div className="flex items-center justify-between text-xs text-[#667085] font-medium">
                 <span>Pending Maintenance</span>
@@ -328,41 +397,21 @@ export default function Overview() {
                 {pendingTasks.length}
               </div>
               <div className="text-[11px] text-[#667085] mt-1 flex items-center justify-between">
-                <span>Across departments</span>
-                <span className="text-[#173F7A] font-semibold flex items-center gap-0.5">
-                  Manage <ArrowRight className="w-3 h-3" />
-                </span>
-              </div>
-            </div>
-
-            {/* Card 2: Critical / Overdue */}
-            <div
-              onClick={() => navigate('/maintenance')}
-              className="bg-white rounded-lg border border-[#D9E1EA] p-5 shadow-xs hover:border-red-400 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center justify-between text-xs text-red-700 font-medium">
-                <span>Critical / Overdue</span>
-                <AlertOctagon className="w-4 h-4 text-red-600" />
-              </div>
-              <div className="text-3xl font-black text-red-600 mt-2 tabular-nums">
-                {criticalTasks.length + overdueTasks.length}
-              </div>
-              <div className="text-[11px] text-[#667085] mt-1 flex items-center justify-between">
                 <span>{criticalTasks.length} critical · {overdueTasks.length} overdue</span>
-                <span className="text-red-600 font-semibold flex items-center gap-0.5">
-                  Inspect <ArrowRight className="w-3 h-3" />
+                <span className="text-[#173F7A] font-semibold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                  Demands <ArrowRight className="w-3 h-3" />
                 </span>
               </div>
             </div>
 
-            {/* Card 3: Plan Status */}
+            {/* Card 4: Plan Status */}
             <div
-              onClick={() => navigate('/planning/proposed')}
-              className="bg-white rounded-lg border border-[#D9E1EA] p-5 shadow-xs hover:border-[#173F7A] transition-colors cursor-pointer"
+              onClick={() => navigate(blocks.length > 0 ? '/planning/proposed' : '/planning/create')}
+              className="bg-white rounded-lg border border-[#D9E1EA] p-5 shadow-xs hover:border-[#173F7A] transition-colors cursor-pointer group"
             >
               <div className="flex items-center justify-between text-xs text-[#667085] font-medium">
-                <span>Plan Status</span>
-                <Clock className="w-4 h-4 text-[#173F7A]" />
+                <span>Plan & Possessions</span>
+                <Layers className="w-4 h-4 text-[#173F7A]" />
               </div>
               <div className="text-2xl font-black text-[#172033] mt-2 flex items-center gap-2">
                 <span
@@ -377,29 +426,11 @@ export default function Overview() {
                 <span>{planStatus}</span>
               </div>
               <div className="text-[11px] text-[#667085] mt-1 flex items-center justify-between">
-                <span>{blocks.length} blocks · {approvedBlocks.length} approved</span>
-                <span className="text-[#173F7A] font-semibold flex items-center gap-0.5">
-                  Review <ArrowRight className="w-3 h-3" />
+                <span className="truncate max-w-[150px]" title={`Next possession: ${nextBlockTimeStr}`}>
+                  {blocks.length > 0 ? `${blocks.length} blocks · ${approvedBlocks.length} approved` : nextBlockTimeStr}
                 </span>
-              </div>
-            </div>
-
-            {/* Card 4: Next Block */}
-            <div
-              onClick={() => navigate('/operations/approved')}
-              className="bg-white rounded-lg border border-[#D9E1EA] p-5 shadow-xs hover:border-[#173F7A] transition-colors cursor-pointer"
-            >
-              <div className="flex items-center justify-between text-xs text-[#667085] font-medium">
-                <span>Next Possession</span>
-                <Train className="w-4 h-4 text-[#667085]" />
-              </div>
-              <div className="text-sm font-bold text-[#172033] mt-2 font-mono truncate">
-                {nextBlockTimeStr}
-              </div>
-              <div className="text-[11px] text-[#667085] mt-1 flex items-center justify-between">
-                <span>{blocks.length > 0 ? (nextBlock?.section_name || 'Corridor') : 'No schedule'}</span>
-                <span className="text-emerald-600 font-semibold flex items-center gap-0.5">
-                  Register <ArrowRight className="w-3 h-3" />
+                <span className="text-[#173F7A] font-semibold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform flex-shrink-0">
+                  Review <ArrowRight className="w-3 h-3" />
                 </span>
               </div>
             </div>
@@ -501,59 +532,87 @@ export default function Overview() {
                   Planning Prerequisites
                 </div>
 
-                <div className="space-y-3 mt-4 text-xs">
-                  <div className="flex items-center justify-between p-2 rounded bg-[#F8FAFC]">
+                <div className="space-y-2.5 mt-3 text-xs">
+                  <div
+                    onClick={() => navigate('/corridor-data')}
+                    className="flex items-center justify-between p-2 rounded bg-[#F8FAFC] hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
                     <span className="font-medium text-[#172033]">1. Corridor Sections</span>
                     <span className={`inline-flex items-center gap-1 font-bold font-mono text-[11px] ${
                       sections.length > 0 ? 'text-emerald-700' : 'text-amber-700'
                     }`}>
                       {sections.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                      {sections.length > 0 ? `${sections.length} Sections` : 'Not Added'}
+                      {sections.length > 0 ? `${sections.length} Sections (${totalLengthKm} km)` : 'Not Added'}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between p-2 rounded bg-[#F8FAFC]">
+                  <div
+                    onClick={() => navigate('/corridor-data')}
+                    className="flex items-center justify-between p-2 rounded bg-[#F8FAFC] hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
                     <span className="font-medium text-[#172033]">2. Train Movements</span>
                     <span className={`inline-flex items-center gap-1 font-bold font-mono text-[11px] ${
                       trains.length > 0 ? 'text-emerald-700' : 'text-amber-700'
                     }`}>
                       {trains.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                      {trains.length > 0 ? `${trains.length} Trains` : 'Not Added'}
+                      {trains.length > 0 ? `${trains.length} Trains (${passengerTrains.length} Pax / ${freightTrains.length} Freight)` : 'Not Added'}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between p-2 rounded bg-[#F8FAFC]">
-                    <span className="font-medium text-[#172033]">3. Maintenance Demands</span>
+                  <div
+                    onClick={() => navigate('/corridor-data')}
+                    className="flex items-center justify-between p-2 rounded bg-[#F8FAFC] hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    <span className="font-medium text-[#172033]">3. Candidate Windows</span>
+                    <span className={`inline-flex items-center gap-1 font-bold font-mono text-[11px] ${
+                      windows.length > 0 ? 'text-emerald-700' : 'text-amber-700'
+                    }`}>
+                      {windows.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                      {windows.length > 0 ? `${windows.length} Windows (${availableWindows.length} Open)` : 'Not Computed'}
+                    </span>
+                  </div>
+
+                  <div
+                    onClick={() => navigate('/maintenance')}
+                    className="flex items-center justify-between p-2 rounded bg-[#F8FAFC] hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    <span className="font-medium text-[#172033]">4. Maintenance Demands</span>
                     <span className={`inline-flex items-center gap-1 font-bold font-mono text-[11px] ${
                       tasks.length > 0 ? 'text-emerald-700' : 'text-amber-700'
                     }`}>
                       {tasks.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                      {tasks.length > 0 ? `${tasks.length} Tasks` : 'Not Added'}
+                      {tasks.length > 0 ? `${tasks.length} Demands (${criticalTasks.length} Critical)` : 'Not Added'}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between p-2 rounded bg-[#F8FAFC]">
-                    <span className="font-medium text-[#172033]">4. Resources (Crews/Machinery)</span>
+                  <div
+                    onClick={() => navigate('/resources')}
+                    className="flex items-center justify-between p-2 rounded bg-[#F8FAFC] hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    <span className="font-medium text-[#172033]">5. Resources (Crews/Equip)</span>
                     <span className={`inline-flex items-center gap-1 font-bold font-mono text-[11px] ${
                       resources.length > 0 ? 'text-emerald-700' : 'text-amber-700'
                     }`}>
                       {resources.length > 0 ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                      {resources.length > 0 ? `${resources.length} Registered` : 'Not Added'}
+                      {resources.length > 0 ? `${resources.length} Registered (${unavailableResources.length} Outage)` : 'Not Added'}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between p-2 rounded bg-[#F8FAFC]">
-                    <span className="font-medium text-[#172033]">5. Proposed Schedule</span>
+                  <div
+                    onClick={() => navigate(blocks.length > 0 ? '/planning/proposed' : '/planning/create')}
+                    className="flex items-center justify-between p-2 rounded bg-[#F8FAFC] hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    <span className="font-medium text-[#172033]">6. Proposed Schedule</span>
                     <span className={`inline-flex items-center gap-1 font-bold font-mono text-[11px] ${
                       blocks.length > 0 ? 'text-emerald-700' : 'text-slate-500'
                     }`}>
-                      {blocks.length > 0 ? `${blocks.length} Blocks` : 'Pending Generation'}
+                      {blocks.length > 0 ? `${blocks.length} Blocks (${approvedBlocks.length} Approved)` : 'Pending Generation'}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-5 pt-4 border-t border-[#D9E1EA]">
+              <div className="mt-4 pt-3 border-t border-[#D9E1EA]">
                 <button
                   onClick={handleContinuePlanning}
                   className="w-full py-2.5 rounded bg-[#173F7A] text-white font-bold text-xs hover:bg-[#1E4E8C] transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
@@ -574,12 +633,12 @@ export default function Overview() {
                 Corridor Section Infrastructure & Active Demands
               </h2>
               <p className="text-[11px] text-[#667085] mt-0.5">
-                Click any section node to inspect its pending maintenance, train movements, available windows, and scheduled possessions
+                Click any section card to inspect its train timetable movements, available candidate windows, pending maintenance, and possessions
               </p>
             </div>
             <button
               onClick={() => navigate('/corridor-data')}
-              className="text-xs font-semibold text-[#173F7A] hover:underline flex items-center gap-1"
+              className="text-xs font-semibold text-[#173F7A] hover:underline flex items-center gap-1 cursor-pointer"
             >
               <Layers className="w-3.5 h-3.5" />
               Manage Corridor & Sections
@@ -590,39 +649,64 @@ export default function Overview() {
           {sections.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               {sections.map((sec) => {
-                const secTasksCount = tasks.filter(
-                  (t) => t.section_id === sec.id || t.section_name?.includes(sec.name)
-                ).length;
-                const hasCrit = tasks.some(
-                  (t) => (t.section_id === sec.id || t.section_name?.includes(sec.name)) && t.severity === 'Critical'
+                const secTasks = tasks.filter(
+                  (t) => t.section_id === sec.id || t.section_name === sec.name || t.section_name?.includes(sec.name)
                 );
-                const secWindowsCount = windows.filter(
-                  (w) => w.section_id === sec.id || w.section_name?.includes(sec.name)
-                ).length;
+                const secTrains = trains.filter(
+                  (t) => t.section_id === sec.id || t.section_name === sec.name || t.section_name?.includes(sec.name)
+                );
+                const secWindows = windows.filter(
+                  (w) => w.section_id === sec.id || w.section_name === sec.name || w.section_name?.includes(sec.name)
+                );
+                const secAvailableWindows = secWindows.filter((w) => w.is_available);
+                const secCrit = secTasks.filter((t) => t.severity === 'Critical');
 
                 return (
                   <div
                     key={sec.id}
-                    onClick={() => handleOpenSection(sec.name)}
-                    className="border border-[#D9E1EA] rounded-lg p-3.5 hover:border-[#173F7A] hover:bg-slate-50 transition-all cursor-pointer text-left bg-[#F8FAFC] relative group"
+                    onClick={() => handleOpenSection(sec.id)}
+                    className="border border-[#D9E1EA] rounded-lg p-3.5 hover:border-[#173F7A] hover:bg-slate-50 transition-all cursor-pointer text-left bg-[#F8FAFC] relative group shadow-2xs"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#172033] group-hover:text-[#173F7A]">
+                      <span className="text-xs font-mono font-bold text-[#173F7A] bg-[#EBF2FA] px-2 py-0.5 rounded">
                         {sec.name}
                       </span>
-                      {hasCrit && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" title="Critical defect" />}
+                      {secCrit.length > 0 && (
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" title={`${secCrit.length} critical defect(s)`} />
+                      )}
                     </div>
-                    <div className="text-[10px] font-mono text-[#667085] mt-1">
-                      {sec.from_station} → {sec.to_station} {sec.length_km ? `· ${sec.length_km} km` : ''} · {sec.line_type || 'Double'} line
+                    <div className="text-sm font-bold text-[#172033] mt-2">
+                      {sec.from_station} → {sec.to_station}
+                    </div>
+                    <div className="text-[11px] text-[#667085] mt-1 space-y-0.5 font-mono">
+                      <div>Distance: <strong className="text-[#172033]">{sec.length_km || 25} km</strong></div>
+                      <div>Track: <strong className="text-[#172033] capitalize">{sec.line_type || 'Double'} line</strong></div>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-700 font-medium">
+                      <Zap className="w-3 h-3 text-emerald-600" />
+                      <span>{sec.is_electrified ? '25 kV AC OHE' : 'Non-electrified'}</span>
                     </div>
 
-                    <div className="mt-3 pt-2 border-t border-slate-200 flex items-center justify-between text-[11px]">
-                      <span className="text-[#667085]">Workload:</span>
-                      <span className="font-bold text-[#172033] font-mono">{secTasksCount} tasks</span>
+                    <div className="mt-3 pt-2.5 border-t border-slate-200 grid grid-cols-3 gap-1 text-center font-mono">
+                      <div className="bg-white p-1 rounded border border-slate-100">
+                        <div className="text-slate-400 text-[9px] uppercase font-sans">Trains</div>
+                        <div className="font-bold text-xs text-[#172033]">{secTrains.length}</div>
+                      </div>
+                      <div className="bg-white p-1 rounded border border-slate-100">
+                        <div className="text-slate-400 text-[9px] uppercase font-sans">Windows</div>
+                        <div className="font-bold text-xs text-emerald-700">{secWindows.length}</div>
+                      </div>
+                      <div className="bg-white p-1 rounded border border-slate-100">
+                        <div className="text-slate-400 text-[9px] uppercase font-sans">Tasks</div>
+                        <div className="font-bold text-xs text-[#173F7A]">{secTasks.length}</div>
+                      </div>
                     </div>
-                    <div className="mt-1 flex items-center justify-between text-[11px]">
-                      <span className="text-[#667085]">Windows:</span>
-                      <span className="font-semibold text-emerald-700 font-mono">{secWindowsCount} available</span>
+
+                    <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between">
+                      <span>{secAvailableWindows.length} avail windows</span>
+                      <span className="text-[#173F7A] font-semibold group-hover:underline flex items-center gap-0.5">
+                        Inspect <ArrowRight className="w-2.5 h-2.5" />
+                      </span>
                     </div>
                   </div>
                 );
@@ -636,7 +720,7 @@ export default function Overview() {
               </div>
               <button
                 onClick={() => navigate('/corridor-data')}
-                className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded bg-[#173F7A] text-white text-xs font-bold hover:bg-[#1E4E8C] transition-colors"
+                className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded bg-[#173F7A] text-white text-xs font-bold hover:bg-[#1E4E8C] transition-colors cursor-pointer"
               >
                 Go to Corridor Setup <ArrowRight className="w-3.5 h-3.5" />
               </button>
@@ -656,9 +740,11 @@ export default function Overview() {
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-xs font-mono font-bold text-[#173F7A] bg-[#EBF2FA] px-2 py-0.5 rounded border border-[#173F7A]/20">
-                    {selectedSection}
+                    {activeSection?.name || selectedSectionId}
                   </span>
-                  <span className="text-2xs text-[#667085]">({sectionTrains.length} scheduled trains)</span>
+                  <span className="text-2xs text-[#667085]">
+                    {activeSection?.from_station} → {activeSection?.to_station} ({activeSection?.length_km || 25} km)
+                  </span>
                 </div>
               </div>
               <button
@@ -670,18 +756,107 @@ export default function Overview() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
-              {/* Tasks on this section */}
+              {/* 1. Scheduled Trains on this section */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-bold text-[#172033] uppercase tracking-wider font-mono text-2xs">
-                    Pending Maintenance ({sectionTasks.length})
+                  <h4 className="font-bold text-[#172033] uppercase tracking-wider font-mono text-2xs flex items-center gap-1.5">
+                    <Train className="w-3.5 h-3.5 text-[#173F7A]" />
+                    <span>Scheduled Train Movements ({sectionTrains.length})</span>
+                  </h4>
+                  <button
+                    onClick={() => {
+                      setSectionDrawerOpen(false);
+                      navigate('/corridor-data');
+                    }}
+                    className="text-[#173F7A] hover:underline flex items-center gap-1 font-semibold text-2xs cursor-pointer"
+                  >
+                    Manage Trains <ExternalLink className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  {sectionTrains.slice(0, 6).map((tr) => (
+                    <div key={tr.id} className="p-2.5 rounded border border-[#D9E1EA] bg-[#F8FAFC] flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-[#172033] flex items-center gap-2">
+                          <span className="font-mono text-[#173F7A]">{tr.train_number}</span>
+                          <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                            tr.train_type === 'Passenger' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {tr.train_type}
+                          </span>
+                        </div>
+                        <div className="text-[#667085] text-[11px] mt-0.5 font-mono">
+                          {new Date(tr.entry_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {new Date(tr.exit_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({tr.transit_min || 30} min)
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-mono">
+                        P{tr.priority}
+                      </span>
+                    </div>
+                  ))}
+                  {sectionTrains.length === 0 && (
+                    <div className="text-slate-500 py-2 text-center bg-slate-50 rounded border border-dashed border-slate-200">
+                      No trains scheduled on this section.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Candidate Windows on this section */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-bold text-[#172033] uppercase tracking-wider font-mono text-2xs flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Candidate Windows ({sectionWindows.length})</span>
+                  </h4>
+                  <button
+                    onClick={() => {
+                      setSectionDrawerOpen(false);
+                      navigate('/corridor-data');
+                    }}
+                    className="text-[#173F7A] hover:underline flex items-center gap-1 font-semibold text-2xs cursor-pointer"
+                  >
+                    Manage Windows <ExternalLink className="w-3 h-3" />
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  {sectionWindows.slice(0, 5).map((w) => (
+                    <div key={w.id} className="p-2 rounded border border-[#D9E1EA] bg-[#F8FAFC] flex items-center justify-between">
+                      <div>
+                        <span className="font-mono font-bold text-[#172033]">
+                          {new Date(w.window_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {new Date(w.window_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <span className="text-[#667085] text-[10px] ml-2 font-mono">({w.duration_min} min)</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        w.is_available ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {w.is_available ? 'Available' : 'Unavailable'}
+                      </span>
+                    </div>
+                  ))}
+                  {sectionWindows.length === 0 && (
+                    <div className="text-slate-500 py-2 text-center bg-slate-50 rounded border border-dashed border-slate-200">
+                      No candidate windows computed yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 3. Tasks on this section */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-bold text-[#172033] uppercase tracking-wider font-mono text-2xs flex items-center gap-1.5">
+                    <Wrench className="w-3.5 h-3.5 text-[#667085]" />
+                    <span>Pending Maintenance ({sectionTasks.length})</span>
                   </h4>
                   <button
                     onClick={() => {
                       setSectionDrawerOpen(false);
                       navigate('/maintenance');
                     }}
-                    className="text-[#173F7A] hover:underline flex items-center gap-1 font-semibold text-2xs"
+                    className="text-[#173F7A] hover:underline flex items-center gap-1 font-semibold text-2xs cursor-pointer"
                   >
                     View All <ExternalLink className="w-3 h-3" />
                   </button>
@@ -712,56 +887,28 @@ export default function Overview() {
                 </div>
               </div>
 
-              {/* Windows on this section */}
+              {/* 4. Planned Blocks on this section */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-bold text-[#172033] uppercase tracking-wider font-mono text-2xs">
-                    Candidate Windows ({sectionWindows.length})
+                  <h4 className="font-bold text-[#172033] uppercase tracking-wider font-mono text-2xs flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-[#173F7A]" />
+                    <span>Proposed Blocks ({sectionBlocks.length})</span>
                   </h4>
                   <button
                     onClick={() => {
                       setSectionDrawerOpen(false);
-                      navigate('/corridor-data');
+                      navigate('/planning/proposed');
                     }}
-                    className="text-[#173F7A] hover:underline flex items-center gap-1 font-semibold text-2xs"
+                    className="text-[#173F7A] hover:underline flex items-center gap-1 font-semibold text-2xs cursor-pointer"
                   >
-                    Manage Windows <ExternalLink className="w-3 h-3" />
+                    View Plan <ExternalLink className="w-3 h-3" />
                   </button>
                 </div>
-                <div className="space-y-1.5">
-                  {sectionWindows.slice(0, 4).map((w) => (
-                    <div key={w.id} className="p-2 rounded border border-[#D9E1EA] bg-[#F8FAFC] flex items-center justify-between">
-                      <div>
-                        <span className="font-mono font-bold text-[#172033]">
-                          {new Date(w.window_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {new Date(w.window_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        <span className="text-[#667085] text-[10px] ml-2">({w.duration_min} min)</span>
-                      </div>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        w.is_available ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {w.is_available ? 'Available' : 'Unavailable'}
-                      </span>
-                    </div>
-                  ))}
-                  {sectionWindows.length === 0 && (
-                    <div className="text-slate-500 py-2 text-center bg-slate-50 rounded border border-dashed border-slate-200">
-                      No candidate windows computed yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Planned Blocks on this section */}
-              <div>
-                <h4 className="font-bold text-[#172033] uppercase tracking-wider font-mono text-2xs mb-2">
-                  Proposed Blocks ({sectionBlocks.length})
-                </h4>
                 <div className="space-y-1.5">
                   {sectionBlocks.slice(0, 3).map((b) => (
                     <div key={b.id} className="p-2.5 rounded border border-[#D9E1EA] bg-emerald-50/50 flex items-center justify-between">
                       <div>
-                        <div className="font-bold text-[#172033]">
+                        <div className="font-bold text-[#172033] font-mono">
                           {new Date(b.block_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {new Date(b.block_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
                         <div className="text-[11px] text-[#667085]">{b.is_joint_block ? 'Joint Multi-Department Possession' : 'Single Department'}</div>

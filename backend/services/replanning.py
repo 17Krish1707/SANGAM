@@ -48,12 +48,13 @@ def simulate_disruption(
     run_id: str,
     section_id: str,
     delay_minutes: int = 45,
+    train_number: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Simulate a train delay on `section_id`:
-      1. Find any train_movement on that section; shift its exit_time by delay_minutes.
+      1. Find target train_movement on that section; shift its entry & exit times by delay_minutes.
       2. Identify blocks in the original run for that section whose window now overlaps
-         the shifted movement.
+         the shifted movement (including 10-min safety buffer).
       3. Run a scoped CP-SAT re-solve covering only affected tasks, with:
          - All non-affected blocks locked as fixed (cannot be changed)
          - A plan-instability penalty for changing any task's window
@@ -65,20 +66,29 @@ def simulate_disruption(
         raise ValueError(f"Run {run_id} not found")
 
     # ── 1. Identify shifted movement ─────────────────────────────────────────
-    train_mv = (
-        db.query(TrainMovement)
-        .filter(TrainMovement.section_id == section_id)
-        .order_by(TrainMovement.entry_time.asc())
-        .first()
-    )
+    train_mv = None
+    if train_number:
+        train_mv = db.query(TrainMovement).filter(TrainMovement.train_number == train_number).first()
+        if train_mv:
+            section_id = str(train_mv.section_id)
 
+    if not train_mv:
+        train_mv = (
+            db.query(TrainMovement)
+            .filter(TrainMovement.section_id == section_id)
+            .order_by(TrainMovement.entry_time.asc())
+            .first()
+        )
+
+    buffer_delta = timedelta(minutes=10)
     if train_mv is None:
-        # No train movement found — treat as a synthetic one for simulation purposes
         shifted_start = orig_run.started_at.replace(hour=8, minute=0, second=0)
         shifted_end   = shifted_start + timedelta(minutes=60 + delay_minutes)
     else:
-        shifted_start = train_mv.entry_time
-        shifted_end   = train_mv.exit_time + timedelta(minutes=delay_minutes)
+        sched_entry = getattr(train_mv, 'scheduled_entry_time', None) or train_mv.entry_time
+        sched_exit = getattr(train_mv, 'scheduled_exit_time', None) or train_mv.exit_time
+        shifted_start = sched_entry + timedelta(minutes=delay_minutes)
+        shifted_end   = sched_exit + timedelta(minutes=delay_minutes)
 
     # ── 2. Find affected blocks ───────────────────────────────────────────────
     orig_blocks = (
@@ -91,7 +101,8 @@ def simulate_disruption(
     unaffected_blocks = []
 
     for b in orig_blocks:
-        if intervals_overlap(b.block_start, b.block_end, shifted_start, shifted_end):
+        # Overlap includes 10-min safety buffer around train path
+        if intervals_overlap(b.block_start, b.block_end, shifted_start - buffer_delta, shifted_end + buffer_delta):
             affected_blocks.append(b)
         else:
             unaffected_blocks.append(b)

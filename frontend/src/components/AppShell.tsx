@@ -13,7 +13,6 @@ import {
   Database,
   Clock,
 } from 'lucide-react';
-import DemoJourneyDrawer from './DemoJourneyDrawer';
 
 interface NavItem {
   label: string;
@@ -208,9 +207,6 @@ export default function AppShell({ children }: AppShellProps) {
       <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-page" id="main-content">
         {children}
       </main>
-
-      {/* ── Judge Demo Flow Drawer ── */}
-      <DemoJourneyDrawer />
     </div>
   );
 }

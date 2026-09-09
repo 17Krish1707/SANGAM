@@ -21,7 +21,7 @@ class MaintenanceTask(Base):
     minimum_contiguous_block_min = Column(Integer, nullable=False)
     requires_power_isolation = Column(Boolean, nullable=False, default=False)
     can_run_parallel = Column(Boolean, nullable=False, default=False)
-    status = Column(String(20), nullable=False, default="Pending", index=True)  # Pending | Ready for Planning | Scheduled | Completed | Deferred
+    status = Column(String(40), nullable=False, default="Pending", index=True)  # New | Pending | Ready for Planning | Scheduled | Approved | Completed | Deferred
     priority_score = Column(Float, nullable=True, index=True)
     description = Column(String(500), nullable=True)
     operational_notes = Column(String(500), nullable=True)

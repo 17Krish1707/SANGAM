@@ -36,12 +36,12 @@ def prepare_optimization_input(
     """
     Prepare canonical input bundle for baseline schedulers and CP-SAT optimizer.
     """
-    # 1. Fetch pending tasks on the given sections within the horizon
+    # 1. Fetch eligible tasks (Pending or Ready for Planning) on the given sections within the horizon
     tasks = (
         db.query(MaintenanceTask)
         .filter(
             MaintenanceTask.section_id.in_(section_ids),
-            MaintenanceTask.status == "Pending",
+            MaintenanceTask.status.in_(["Pending", "Ready for Planning"]),
             MaintenanceTask.due_date <= end_date,
         )
         .all()

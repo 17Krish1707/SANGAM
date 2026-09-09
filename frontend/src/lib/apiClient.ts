@@ -129,6 +129,13 @@ export function resetOperationalDatabase(keepSections: boolean = false): Promise
   });
 }
 
+export function initializeStandardDataset(): Promise<{ status: string; message: string; data?: any }> {
+  return request<{ status: string; message: string; data?: any }>('/api/rules/initialize-standard-dataset', {
+    method: 'POST',
+  });
+}
+
+
 // ─────────────────────────────────────────────
 // Maintenance Tasks
 // ─────────────────────────────────────────────
@@ -628,9 +635,13 @@ export function getTaskIntelligence(taskId: string): Promise<TaskIntelligence> {
 
 export interface TrainMovementData {
   id: string;
+  train_number?: string;
   train_type: 'Passenger' | 'Goods';
   entry_time: string;
   exit_time: string;
+  scheduled_entry_time?: string;
+  scheduled_exit_time?: string;
+  delay_minutes?: number;
   visible_start: string;
   visible_end: string;
   transit_min: number;
@@ -865,6 +876,9 @@ export interface TimetableTrain {
   train_type: 'Passenger' | 'Goods';
   entry_time: string;
   exit_time: string;
+  scheduled_entry_time?: string;
+  scheduled_exit_time?: string;
+  delay_minutes?: number;
   transit_min: number;
   priority: number;
   forecast_confidence: number | null;
@@ -1130,3 +1144,109 @@ export function simulateReplan(params: {
 
 export const triggerOptimization = generatePlans;
 export const updateBlockOperationalStatus = updateBlockExecutionStatus;
+
+// ─────────────────────────────────────────────
+// Dynamic Train Operations & Re-planning
+// ─────────────────────────────────────────────
+
+export interface DelayTrainResponse {
+  status: string;
+  id: string;
+  train_number: string;
+  section_id: string;
+  scheduled_entry_time: string;
+  scheduled_exit_time: string;
+  entry_time: string;
+  exit_time: string;
+  delay_minutes: number;
+  message: string;
+}
+
+export function delayTrain(trainId: string, delayMinutes: number, reason = 'Operational Delay'): Promise<DelayTrainResponse> {
+  return request<DelayTrainResponse>(`/api/corridor/trains/${trainId}/delay`, {
+    method: 'POST',
+    body: JSON.stringify({ delay_minutes: delayMinutes, reason }),
+  });
+}
+
+export function delayTrainByNumber(trainNumber: string, delayMinutes: number, reason = 'Operational Delay'): Promise<DelayTrainResponse> {
+  return request<DelayTrainResponse>('/api/corridor/trains/delay-by-number', {
+    method: 'POST',
+    body: JSON.stringify({ train_number: trainNumber, delay_minutes: delayMinutes, reason }),
+  });
+}
+
+export interface ReplanPreviewResponse {
+  status: string;
+  train_number: string;
+  train_type: string;
+  section_id: string;
+  section_name: string;
+  delay_minutes: number;
+  original_path: {
+    entry_time: string;
+    exit_time: string;
+  };
+  preview_path: {
+    entry_time: string;
+    exit_time: string;
+    buffer_start: string;
+    buffer_end: string;
+  };
+  affected_blocks: {
+    block_id: string;
+    section_name: string;
+    block_start: string;
+    block_end: string;
+    duration_min: number;
+    is_joint_block: boolean;
+    task_codes: string[];
+    conflict_reason: string;
+  }[];
+  affected_count: number;
+  total_plan_blocks: number;
+  unaffected_count: number;
+}
+
+export function previewReplan(params: {
+  run_id?: string;
+  train_number?: string;
+  section_id?: string;
+  delay_minutes: number;
+}): Promise<ReplanPreviewResponse> {
+  return request<ReplanPreviewResponse>('/api/plans/replan/preview', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+export interface PlanConflictItem {
+  type: 'train_occupancy' | 'resource_unavailable';
+  train_number?: string;
+  train_type?: string;
+  delay_minutes?: number;
+  resource_name?: string;
+  task_code?: string;
+  block_id: string;
+  section_id: string;
+  section_name: string;
+  block_start: string;
+  block_end: string;
+  description: string;
+}
+
+export interface PlanFreshnessResponse {
+  status: 'CURRENT' | 'NEEDS_UPDATE' | 'HAS_CONFLICT' | 'NO_PLAN';
+  run_id: string | null;
+  has_conflicts: boolean;
+  conflicts: PlanConflictItem[];
+  affected_blocks_count: number;
+  affected_block_ids: string[];
+  reason: string;
+}
+
+export function getPlanFreshness(runId?: string): Promise<PlanFreshnessResponse> {
+  const qs = runId ? `?run_id=${runId}` : '';
+  return request<PlanFreshnessResponse>(`/api/plans/freshness${qs}`);
+}
+

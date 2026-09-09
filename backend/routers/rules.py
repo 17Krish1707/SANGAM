@@ -132,3 +132,20 @@ def reset_db_operational_data(keep_sections: bool = False):
     reset_operational_data(keep_sections=keep_sections)
     return {"status": "success", "message": "Operational database reset to clean empty state."}
 
+
+@router.post("/initialize-standard-dataset")
+@router.post("/seed-judge-demo")
+def api_seed_standard_dataset():
+    """
+    Divisional Admin action: Populates standard corridor operational records
+    including 3 sections, scheduled train movements, departmental maintenance demands,
+    resources, and pre-computed optimization runs.
+    """
+    from backend.scripts.seed_judge_demo import seed_judge_demo
+    result = seed_judge_demo()
+    return {
+        "status": "success",
+        "message": "Standard corridor operational dataset initialized successfully with baseline and SANGAM optimized plans.",
+        "data": result,
+    }
+

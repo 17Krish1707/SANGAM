@@ -29,7 +29,7 @@ import {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-const DEMO_TODAY = '2026-09-07';
+const OPERATING_TODAY = '2026-09-07';
 
 function getMonday(iso: string) {
   const d = new Date(iso); const day = d.getDay();
@@ -39,7 +39,7 @@ function addDays(iso: string, n: number) {
   const d = new Date(iso); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0];
 }
 
-const WEEK_START = getMonday(DEMO_TODAY);
+const WEEK_START = getMonday(OPERATING_TODAY);
 
 const DEPARTMENTS = [
   { code: 'ENG', label: 'Engineering' },

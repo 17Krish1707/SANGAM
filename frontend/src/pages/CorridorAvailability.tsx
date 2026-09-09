@@ -17,7 +17,7 @@ import {
   Activity,
 } from 'lucide-react';
 
-const DEMO_DATE = '2026-09-07';
+const DEFAULT_CORRIDOR_DATE = '2026-09-07';
 
 function fmtTime(iso: string) {
   if (!iso) return '—';
@@ -75,8 +75,8 @@ export default function CorridorAvailability() {
     setSelectedWindow(null);
 
     Promise.all([
-      getSectionOccupancy(selectedSectionId, DEMO_DATE),
-      getCorridorWindows(selectedSectionId, `${DEMO_DATE}T00:00:00`, `${DEMO_DATE}T23:59:59`),
+      getSectionOccupancy(selectedSectionId, DEFAULT_CORRIDOR_DATE),
+      getCorridorWindows(selectedSectionId, `${DEFAULT_CORRIDOR_DATE}T00:00:00`, `${DEFAULT_CORRIDOR_DATE}T23:59:59`),
     ])
       .then(([occData, winData]) => {
         setOccupancy(occData);

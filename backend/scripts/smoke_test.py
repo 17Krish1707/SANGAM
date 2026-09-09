@@ -65,7 +65,7 @@ def main():
         print("\n[b] Populating corridor block windows for all sections...")
         sections = db.query(RailwaySection).all()
         section_ids = [str(s.id) for s in sections]
-        check("5 demo sections found", len(sections) == 5, f"found {len(sections)}")
+        check("Corridor sections found", len(sections) >= 3, f"found {len(sections)}")
 
         windows = populate_block_windows(db, section_ids, PLAN_START, PLAN_END)
         check("Block windows populated", len(windows) > 0, f"{len(windows)} windows generated")

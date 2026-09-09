@@ -83,6 +83,12 @@ def init_db(drop_first: bool = False):
             cols = {r[1] for r in res}
             if "train_number" not in cols:
                 conn.execute(text("ALTER TABLE train_movements ADD COLUMN train_number VARCHAR(50)"))
+            if "scheduled_entry_time" not in cols:
+                conn.execute(text("ALTER TABLE train_movements ADD COLUMN scheduled_entry_time DATETIME"))
+            if "scheduled_exit_time" not in cols:
+                conn.execute(text("ALTER TABLE train_movements ADD COLUMN scheduled_exit_time DATETIME"))
+            if "delay_minutes" not in cols:
+                conn.execute(text("ALTER TABLE train_movements ADD COLUMN delay_minutes INTEGER DEFAULT 0"))
             if "source" not in cols:
                 conn.execute(text("ALTER TABLE train_movements ADD COLUMN source VARCHAR(50) DEFAULT 'Synthetic Demo'"))
             if "notes" not in cols:

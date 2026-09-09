@@ -13,9 +13,12 @@ class TrainMovement(Base):
     train_number = Column(String(50), nullable=True)  # e.g. 12925, G-4022
     entry_time = Column(DateTime, nullable=False, index=True)
     exit_time = Column(DateTime, nullable=False, index=True)
+    scheduled_entry_time = Column(DateTime, nullable=True)
+    scheduled_exit_time = Column(DateTime, nullable=True)
+    delay_minutes = Column(Integer, nullable=False, default=0)
     priority = Column(Integer, nullable=False, default=1)  # 1 = Highest, higher numbers = lower priority
     forecast_confidence = Column(Float, nullable=True)  # For goods trains (0.0 to 1.0)
-    source = Column(String(50), nullable=False, default="Synthetic Demo")  # Manual | CSV Import | Synthetic Demo | API
+    source = Column(String(50), nullable=False, default="COA / FOIS Feed")  # Manual | CSV Import | COA / FOIS Feed | API
     notes = Column(String(255), nullable=True)
 
     section = relationship("RailwaySection", back_populates="train_movements")

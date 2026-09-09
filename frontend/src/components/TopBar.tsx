@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Compass } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePlanningContext, DEFAULT_CORRIDOR_NAME } from '../context/PlanningContext';
 import RailwaySectionStrip from './railway/RailwaySectionStrip';
 
@@ -21,7 +21,6 @@ export default function TopBar({
     setSelectedHorizon,
     selectedDate,
     setSelectedDate,
-    setIsDemoJourneyOpen,
     isGenerating,
   } = usePlanningContext();
 
@@ -134,14 +133,11 @@ export default function TopBar({
             </button>
           </div>
 
-          {/* Judge Demo Journey button */}
-          <button
-            onClick={() => setIsDemoJourneyOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-accent text-white hover:bg-accent-hover transition-colors shadow-xs"
-          >
-            <Compass className="w-3.5 h-3.5" />
-            <span>Demo Flow</span>
-          </button>
+          {/* Live Operational Status */}
+          <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Active Corridor</span>
+          </div>
         </div>
       </header>
 

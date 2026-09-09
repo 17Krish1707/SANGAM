@@ -101,7 +101,40 @@ export default function CreateBlockPlan() {
   const hasTasks = tasks.length > 0;
   const hasWindows = activeWindows.length > 0;
   const hasResources = availableResources.length > 0;
-  const isReadyToOptimize = hasSections && hasTasks && hasWindows && hasResources;
+  const isReadyToOptimize = hasSections && hasTasks && hasWindows && hasResources && hasTrains;
+
+  // Step-by-step completeness validation
+  const isStep1Complete = Boolean(
+    startDate &&
+    endDate &&
+    new Date(endDate) >= new Date(startDate) &&
+    selectedSectionIds.length > 0
+  );
+  const step1Reason = !startDate || !endDate
+    ? 'Planning dates required'
+    : new Date(endDate) < new Date(startDate)
+    ? 'End date before start date'
+    : selectedSectionIds.length === 0
+    ? 'At least 1 corridor section required'
+    : `${selectedSectionIds.length} sections selected`;
+
+  const isStep2Complete = Boolean(isReadyToOptimize);
+  const step2Reason = isReadyToOptimize
+    ? 'All inputs ready'
+    : !hasSections
+    ? 'Corridor sections missing'
+    : !hasTrains
+    ? 'Train movements missing'
+    : !hasTasks
+    ? 'Maintenance tasks missing'
+    : !hasResources
+    ? 'Available resources missing'
+    : !hasWindows
+    ? 'Candidate windows missing'
+    : 'Prerequisites incomplete';
+
+  const isStep3Complete = Boolean(selectedObjectiveProfile);
+  const step3Reason = selectedObjectiveProfile ? `Profile: ${selectedObjectiveProfile}` : 'Select objective';
 
   const handleStartGeneration = async () => {
     setStep(4);
@@ -163,27 +196,70 @@ export default function CreateBlockPlan() {
         <div className="bg-white rounded-lg border border-[#D9E1EA] p-5 shadow-xs">
           <div className="flex items-center justify-between max-w-xl mx-auto">
             {[
-              { num: 1, label: 'Planning Period' },
-              { num: 2, label: 'Review Inputs' },
-              { num: 3, label: 'Objective Priority' },
-            ].map((s) => (
-              <div key={s.num} className="flex items-center gap-2">
+              { num: 1, label: 'Planning Period', isComplete: isStep1Complete, reason: step1Reason },
+              { num: 2, label: 'Review Inputs', isComplete: isStep2Complete, reason: step2Reason },
+              { num: 3, label: 'Objective Priority', isComplete: isStep3Complete, reason: step3Reason },
+            ].map((s) => {
+              const isCurrent = step === s.num;
+              // A step is ONLY tick marked if it was actually completed!
+              const isDone = s.isComplete && (step > s.num || (s.num === 3 && isStep3Complete));
+              const isIncompletePast = !s.isComplete && step > s.num;
+
+              return (
                 <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
-                    step === s.num
-                      ? 'bg-[#173F7A] text-white'
-                      : step > s.num
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-slate-100 text-slate-500'
+                  key={s.num}
+                  onClick={() => {
+                    if (s.num < step || (s.num === 2 && isStep1Complete) || (s.num === 3 && isStep1Complete && isStep2Complete)) {
+                      setStep(s.num);
+                    }
+                  }}
+                  className={`flex items-center gap-2 transition-all ${
+                    s.num <= step || (s.num === 2 && isStep1Complete) || (s.num === 3 && isStep1Complete && isStep2Complete)
+                      ? 'cursor-pointer'
+                      : 'cursor-not-allowed opacity-60'
                   }`}
+                  title={
+                    isDone
+                      ? `Step ${s.num}: Completed`
+                      : isIncompletePast
+                      ? `Step ${s.num}: Incomplete (${s.reason})`
+                      : `Step ${s.num}: ${s.label}`
+                  }
                 >
-                  {step > s.num ? <CheckCircle2 className="w-4 h-4" /> : s.num}
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                      isCurrent
+                        ? 'bg-[#173F7A] text-white ring-2 ring-[#173F7A]/30 ring-offset-1'
+                        : isDone
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : isIncompletePast
+                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                        : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {isDone ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                    ) : isIncompletePast ? (
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
+                    ) : (
+                      s.num
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span
+                      className={`text-xs font-semibold ${
+                        isCurrent ? 'text-[#173F7A]' : isIncompletePast ? 'text-amber-800' : 'text-[#667085]'
+                      }`}
+                    >
+                      {s.label}
+                    </span>
+                    {isIncompletePast && (
+                      <span className="text-[10px] text-amber-600 font-medium">Incomplete</span>
+                    )}
+                  </div>
                 </div>
-                <span className={`text-xs font-semibold ${step === s.num ? 'text-[#173F7A]' : 'text-[#667085]'}`}>
-                  {s.label}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -255,10 +331,31 @@ export default function CreateBlockPlan() {
               )}
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-[#D9E1EA]">
+            <div className="flex flex-col sm:flex-row items-end sm:items-center justify-between gap-3 pt-4 border-t border-[#D9E1EA]">
+              <div>
+                {!isStep1Complete && (
+                  <p className="text-xs text-amber-700 flex items-center gap-1.5 font-medium">
+                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 text-amber-600" />
+                    {selectedSectionIds.length === 0
+                      ? 'Select at least one corridor section to proceed.'
+                      : !startDate || !endDate
+                      ? 'Specify valid start and end dates.'
+                      : new Date(endDate) < new Date(startDate)
+                      ? 'End date must be on or after start date.'
+                      : 'Complete required planning horizon details.'}
+                  </p>
+                )}
+              </div>
               <button
-                onClick={() => setStep(2)}
-                className="px-5 py-2.5 bg-[#173F7A] hover:bg-[#1E4E8C] text-white rounded-lg font-bold text-xs flex items-center gap-2 transition-colors shadow-xs cursor-pointer"
+                onClick={() => {
+                  if (isStep1Complete) setStep(2);
+                }}
+                disabled={!isStep1Complete}
+                className={`px-5 py-2.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-colors shadow-xs ${
+                  isStep1Complete
+                    ? 'bg-[#173F7A] hover:bg-[#1E4E8C] text-white cursor-pointer'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
               >
                 <span>Continue to Review Inputs</span>
                 <ArrowRight className="w-4 h-4" />

@@ -6,6 +6,7 @@ import {
   updatePlanningRules,
   resetPlanningRules,
   resetOperationalDatabase,
+  initializeStandardDataset,
 } from '../../lib/apiClient';
 import {
   ShieldAlert,
@@ -16,12 +17,16 @@ import {
   AlertTriangle,
   Database,
   Trash2,
+  PlayCircle,
+  X,
 } from 'lucide-react';
 
 export default function PlanningRules() {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [resettingDb, setResettingDb] = useState(false);
+  const [loadingInit, setLoadingInit] = useState(false);
+  const [initModalOpen, setInitModalOpen] = useState(false);
   const [dbNotice, setDbNotice] = useState<string | null>(null);
 
   const [formState, setFormState] = useState({
@@ -112,6 +117,20 @@ export default function PlanningRules() {
       alert(`Failed to reset operational database: ${err.message || err}`);
     } finally {
       setResettingDb(false);
+    }
+  };
+
+  const handleInitializeDataset = async () => {
+    setLoadingInit(true);
+    try {
+      const res = await initializeStandardDataset();
+      setDbNotice(res.message);
+      setInitModalOpen(false);
+      setTimeout(() => setDbNotice(null), 6000);
+    } catch (err: any) {
+      alert(`Failed to initialize standard dataset: ${err.message || err}`);
+    } finally {
+      setLoadingInit(false);
     }
   };
 
@@ -314,44 +333,132 @@ export default function PlanningRules() {
             </div>
           </div>
 
-          {/* DEVELOPER DATA MAINTENANCE ACTION (Requirement #6) */}
+          {/* DEVELOPER DATA MAINTENANCE ACTION */}
           <div className="bg-white border border-[#D9E1EA] rounded-xl p-6 space-y-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-[#D9E1EA] pb-3">
               <div className="flex items-center gap-2 text-[#172033] font-bold text-sm">
-                <Database className="w-5 h-5 text-amber-600" />
-                <span>Developer Database Maintenance</span>
+                <Database className="w-5 h-5 text-indigo-600" />
+                <span>Dataset Management & Operational Records</span>
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
-                Developer / Admin Action
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-full">
+                Operational Database Controls
               </span>
             </div>
 
-            <p className="text-xs text-[#667085] leading-relaxed">
-              Reset the operational database to a completely clean, EMPTY state. Deletes all maintenance tasks, train movements, block windows, resources, and optimization runs in FK-safe order while retaining the schema, configuration rules, and core department master records.
-            </p>
+            {dbNotice && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span>{dbNotice}</span>
+              </div>
+            )}
 
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <button
-                type="button"
-                disabled={resettingDb}
-                onClick={() => handleResetOperationalDb(false)}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors disabled:opacity-50"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Reset All Operational Data (Empty Start)</span>
-              </button>
-              <button
-                type="button"
-                disabled={resettingDb}
-                onClick={() => handleResetOperationalDb(true)}
-                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-[#D9E1EA] rounded-md font-semibold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
-              >
-                <span>Reset Data (Keep Configured Sections)</span>
-              </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              {/* Load Standard Operational Dataset Card */}
+              <div className="p-4 rounded-lg border border-indigo-200 bg-indigo-50/50 space-y-2.5">
+                <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs">
+                  <Database className="w-4 h-4 text-indigo-600" />
+                  <span>Initialize Standard Corridor Dataset</span>
+                </div>
+                <p className="text-[11px] text-indigo-950/80 leading-relaxed">
+                  Populates standard corridor records including 3 double-line sections, scheduled train movements, departmental maintenance demands (ENG, S&T, TRD), physical machinery resources, and solver block windows.
+                </p>
+                <button
+                  type="button"
+                  disabled={loadingInit || resettingDb}
+                  onClick={() => setInitModalOpen(true)}
+                  className="w-full mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-colors disabled:opacity-50"
+                >
+                  <PlayCircle className="w-3.5 h-3.5" />
+                  <span>{loadingInit ? 'Initializing Data...' : 'Initialize Standard Dataset'}</span>
+                </button>
+              </div>
+
+              {/* Reset Operational Data Card */}
+              <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/70 space-y-2.5">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
+                  <Trash2 className="w-4 h-4 text-red-600" />
+                  <span>Reset All Operational Data</span>
+                </div>
+                <p className="text-[11px] text-[#667085] leading-relaxed">
+                  Purges all operational records (tasks, trains, windows, resources, and blocks) in FK-safe order while retaining the schema, configuration rules, and department masters for clean manual setup.
+                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={resettingDb || loadingInit}
+                    onClick={() => handleResetOperationalDb(false)}
+                    className="flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <span>{resettingDb ? 'Purging...' : 'Reset All (Empty)'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={resettingDb || loadingInit}
+                    onClick={() => handleResetOperationalDb(true)}
+                    className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-[#D9E1EA] rounded-md font-semibold text-xs cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <span>Keep Sections</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </form>
+
+        {/* Confirmation Modal for Initialize Standard Dataset */}
+        {initModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full border border-[#D9E1EA] p-6 space-y-4 animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between border-b border-[#D9E1EA] pb-3">
+                <div className="flex items-center gap-2 font-bold text-sm text-[#172033]">
+                  <Database className="w-5 h-5 text-indigo-600" />
+                  <span>Initialize Standard Corridor Dataset</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setInitModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-xs text-[#667085]">
+                <p className="leading-relaxed">
+                  This will synchronize and populate standard operational records across the corridor (sections, train timetables, departmental maintenance demands, resources, and candidate block windows).
+                </p>
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <span className="font-medium">
+                    Current operational tasks and schedules will be synchronized to the divisional corridor baseline.
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#D9E1EA]">
+                <button
+                  type="button"
+                  disabled={loadingInit}
+                  onClick={() => setInitModalOpen(false)}
+                  className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-[#D9E1EA] rounded-md font-semibold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={loadingInit}
+                  onClick={handleInitializeDataset}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <PlayCircle className="w-3.5 h-3.5" />
+                  <span>{loadingInit ? 'Initializing...' : 'Initialize Dataset'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
 }
+

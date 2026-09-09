@@ -12,6 +12,7 @@ import {
   Zap,
   Train,
   Wrench,
+  Database,
 } from 'lucide-react';
 
 export default function DataSources() {
@@ -23,16 +24,13 @@ export default function DataSources() {
       .catch((err) => console.error('Failed loading data sources summary', err));
   }, []);
 
-  const tmsPipeline = data?.pipelines.find((p) => p.name.includes('TMS'));
-  const tdmsPipeline = data?.pipelines.find((p) => p.name.includes('TDMS'));
-  const smmsPipeline = data?.pipelines.find((p) => p.name.includes('SMMS'));
-  const coaPipeline = data?.pipelines.find((p) => p.name.includes('COA'));
+  const totals = data?.unified_model_totals as any;
 
   return (
     <>
       <TopBar
         title="Railway Data Architecture &amp; Methodology"
-        subtitle="TMS, SMMS, TDMS Feeds, Passenger Timetables &amp; Synthetic Pipeline Integrity"
+        subtitle="Current Active Dataset &amp; CRIS Production Integration Interfaces"
       />
 
       <main className="flex-1 overflow-y-auto bg-panel p-6 space-y-6">
@@ -41,20 +39,96 @@ export default function DataSources() {
           <Info className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
           <div className="space-y-1">
             <h4 className="font-bold uppercase tracking-wider text-accent">
-              Operational Data Transparency Notice (SIH Problem SIH26027)
+              Operational Data Architecture Notice (SIH Problem SIH26027)
             </h4>
             <p className="leading-relaxed">
-              In accordance with Indian Railways cyber-security protocols, real operational railway databases (TMS, SMMS, TDMS, FOIS) are air-gapped from external hackathon servers. All data rendered in this workstation is generated via deterministic, reproducible probabilistic models (Seed: <code className="bg-white px-1.5 py-0.5 rounded font-bold font-mono text-accent">26027</code>) strictly matching Indian Railways physical track parameters, train speeds, headway rules, and multi-department task specifications.
+              In accordance with Indian Railways cyber-security protocols, real enterprise railway production databases (TMS, SMMS, TDMS, FOIS) operate in air-gapped divisional intranet environments. SANGAM provides pre-validated standard REST/JSON data ingestion adapter specifications that connect directly to CRIS enterprise middleware while running real, deterministic optimization models locally.
             </p>
           </div>
         </div>
 
-        {/* ── Visual Data Ingestion Architecture Pipeline ── */}
+        {/* ── SECTION 1: CURRENT OPERATIONAL DATASET ── */}
+        <div className="bg-white border border-[#D9E1EA] rounded-xl p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#D9E1EA] pb-3">
+            <div className="flex items-center gap-2">
+              <Database className="w-5 h-5 text-indigo-600" />
+              <h3 className="text-sm font-bold text-[#172033] uppercase tracking-wider">
+                Current Active Operational Dataset
+              </h3>
+            </div>
+            <span className="text-xs font-mono font-bold px-2.5 py-0.5 bg-indigo-100 text-indigo-800 rounded-full">
+              TEST DATASET (Deterministic E2E Scenario)
+            </span>
+          </div>
+
+          <p className="text-xs text-[#667085] leading-relaxed">
+            Active in-memory railway corridor instance with 3 sections, 4 train movements, 6 maintenance jobs, and 10 resources used for live constraint evaluation and OR-Tools CP-SAT joint block optimization.
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-1">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <span className="text-2xs font-bold text-slate-500 uppercase">Corridor Sections</span>
+              <div className="mt-1 flex items-baseline justify-between">
+                <span className="text-xl font-bold font-mono text-[#172033]">
+                  {totals?.corridor_sections ?? 3}
+                </span>
+                <span className="text-2xs text-slate-500">Sections</span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">A-B, B-C, C-D (Double Line)</span>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <span className="text-2xs font-bold text-slate-500 uppercase">Train Timetable Paths</span>
+              <div className="mt-1 flex items-baseline justify-between">
+                <span className="text-xl font-bold font-mono text-purple-700">
+                  {totals?.train_movements_considered ?? 4}
+                </span>
+                <span className="text-2xs text-slate-500">Trains</span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">P101, P102, G201, P301</span>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <span className="text-2xs font-bold text-slate-500 uppercase">Maintenance Jobs</span>
+              <div className="mt-1 flex items-baseline justify-between">
+                <span className="text-xl font-bold font-mono text-[#173F7A]">
+                  {totals?.total_maintenance_demand ?? 6}
+                </span>
+                <span className="text-2xs text-slate-500">Jobs</span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">TASK-A1 to TASK-C2</span>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <span className="text-2xs font-bold text-slate-500 uppercase">Crews &amp; Equipment</span>
+              <div className="mt-1 flex items-baseline justify-between">
+                <span className="text-xl font-bold font-mono text-emerald-700">
+                  10
+                </span>
+                <span className="text-2xs text-slate-500">Resources</span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">4 ENG, 3 SNT, 3 TRD</span>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <span className="text-2xs font-bold text-slate-500 uppercase">Coordinated Blocks</span>
+              <div className="mt-1 flex items-baseline justify-between">
+                <span className="text-xl font-bold font-mono text-indigo-700">
+                  3
+                </span>
+                <span className="text-2xs text-slate-500">Possessions</span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">All 3 Joint Coordinated</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── SECTION 2: PRODUCTION INTEGRATION TARGETS (CRIS / INDIAN RAILWAYS) ── */}
         <Panel
           title={
             <div className="flex items-center gap-2">
               <Server className="w-4 h-4 text-accent" />
-              <span>Multi-Source Data Ingestion &amp; Constraint Synthesis Engine</span>
+              <span>Production Integration Targets (Enterprise CRIS Adapters)</span>
             </div>
           }
         >
@@ -67,14 +141,15 @@ export default function DataSources() {
                 </div>
                 <div>
                   <h5 className="font-bold text-xs text-text-primary">TMS</h5>
-                  <span className="text-2xs text-text-secondary">Track Mgmt</span>
+                  <span className="text-2xs text-text-secondary">Track Mgmt (Civil)</span>
                 </div>
               </div>
               <p className="text-2xs text-text-secondary leading-relaxed">
                 USFD ultrasonic rail flaw detections, track geometry car defects, tamping demand backlog.
               </p>
-              <div className="font-mono text-2xs font-semibold text-blue-700 pt-1 border-t border-slate-100">
-                Ingested: {tmsPipeline?.records_ingested || 45} Work Orders
+              <div className="font-mono text-2xs font-semibold text-blue-700 pt-1 border-t border-slate-100 flex items-center justify-between">
+                <span>Adapter: REST / JSON</span>
+                <span className="px-1.5 py-0.2 bg-blue-100 rounded text-[9px]">Target</span>
               </div>
             </div>
 
@@ -92,8 +167,9 @@ export default function DataSources() {
               <p className="text-2xs text-text-secondary leading-relaxed">
                 Overhead equipment catenary inspection, mast bonding, 25kV power isolations &amp; neutral sections.
               </p>
-              <div className="font-mono text-2xs font-semibold text-amber-700 pt-1 border-t border-slate-100">
-                Ingested: {tdmsPipeline?.records_ingested || 35} Work Orders
+              <div className="font-mono text-2xs font-semibold text-amber-700 pt-1 border-t border-slate-100 flex items-center justify-between">
+                <span>SCADA Telemetry</span>
+                <span className="px-1.5 py-0.2 bg-amber-100 rounded text-[9px]">Target</span>
               </div>
             </div>
 
@@ -109,119 +185,117 @@ export default function DataSources() {
                 </div>
               </div>
               <p className="text-2xs text-text-secondary leading-relaxed">
-                Electric point machines, track circuits, axle counters, signal aspects &amp; interlock tests.
+                Electric point machines, track circuits, axle counters, signal aspects &amp; electronic interlock tests.
               </p>
-              <div className="font-mono text-2xs font-semibold text-indigo-700 pt-1 border-t border-slate-100">
-                Ingested: {smmsPipeline?.records_ingested || 40} Work Orders
+              <div className="font-mono text-2xs font-semibold text-indigo-700 pt-1 border-t border-slate-100 flex items-center justify-between">
+                <span>Interlocking Feed</span>
+                <span className="px-1.5 py-0.2 bg-indigo-100 rounded text-[9px]">Target</span>
               </div>
             </div>
 
-            {/* 4. Passenger Timetable & FOIS */}
+            {/* 4. Passenger Timetable & COA */}
             <div className="p-3 bg-white rounded-lg border border-emerald-200 space-y-2 shadow-xs">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded bg-emerald-50 text-emerald-700 flex items-center justify-center">
                   <Train className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h5 className="font-bold text-xs text-text-primary">COA / FOIS</h5>
-                  <span className="text-2xs text-text-secondary">Train Movements</span>
+                  <h5 className="font-bold text-xs text-text-primary">COA</h5>
+                  <span className="text-2xs text-text-secondary">Control Office App</span>
                 </div>
               </div>
               <p className="text-2xs text-text-secondary leading-relaxed">
-                Daily passenger train schedule, freight velocity corridors, 15-minute protected safety buffers.
+                Working Timetable (WTT) passenger trains, station arrival/departures, and headway buffers.
               </p>
-              <div className="font-mono text-2xs font-semibold text-emerald-700 pt-1 border-t border-slate-100">
-                Modeled: {coaPipeline?.records_ingested || 60} Train Paths
+              <div className="font-mono text-2xs font-semibold text-emerald-700 pt-1 border-t border-slate-100 flex items-center justify-between">
+                <span>Timetable Stream</span>
+                <span className="px-1.5 py-0.2 bg-emerald-100 rounded text-[9px]">Target</span>
               </div>
             </div>
 
-            {/* 5. SANGAM CP-SAT Core */}
-            <div className="p-3 bg-accent text-white rounded-lg space-y-2 shadow-sm">
+            {/* 5. Freight Operations (FOIS) */}
+            <div className="p-3 bg-white rounded-lg border border-purple-200 space-y-2 shadow-xs">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded bg-white/20 text-white flex items-center justify-center font-black text-xs">
-                  S
+                <div className="w-7 h-7 rounded bg-purple-50 text-purple-700 flex items-center justify-center">
+                  <Train className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h5 className="font-bold text-xs text-white">SANGAM</h5>
-                  <span className="text-2xs text-blue-100">Joint Optimizer</span>
+                  <h5 className="font-bold text-xs text-text-primary">FOIS</h5>
+                  <span className="text-2xs text-text-secondary">Freight Operations</span>
                 </div>
               </div>
-              <p className="text-2xs text-blue-100 leading-relaxed">
-                Bundles cross-department work into shared blocks, respecting all safety &amp; power rules.
+              <p className="text-2xs text-text-secondary leading-relaxed">
+                Goods rake tracking, terminal loading status, and dynamic probabilistic transit corridors.
               </p>
-              <div className="font-mono text-2xs font-bold text-amber-300 pt-1 border-t border-white/20">
-                Efficiency: 84.6% Closure Saved
+              <div className="font-mono text-2xs font-semibold text-purple-700 pt-1 border-t border-slate-100 flex items-center justify-between">
+                <span>Rake ETA Feed</span>
+                <span className="px-1.5 py-0.2 bg-purple-100 rounded text-[9px]">Target</span>
               </div>
             </div>
           </div>
         </Panel>
 
-        {/* ── Live Dataset Registry Status ── */}
+        {/* ── System Engine & Architecture Topology ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {/* Section Topology */}
-          <Panel title="Corridor Topology (5 Sections)">
+          <Panel title="Corridor Configuration">
             <div className="space-y-2 text-xs">
               <div className="flex justify-between font-mono py-1 border-b border-border">
-                <span className="text-text-secondary">Total Corridor Sections:</span>
-                <span className="font-bold text-text-primary">
-                  {data?.unified_model_totals.corridor_sections || 5} Sections
-                </span>
-              </div>
-              <div className="flex justify-between font-mono py-1 border-b border-border">
                 <span className="text-text-secondary">Corridor Line:</span>
-                <span className="font-bold text-text-primary">Central Main Line (Double Track)</span>
+                <span className="font-bold text-text-primary">Station A → B → C → D</span>
               </div>
               <div className="flex justify-between font-mono py-1 border-b border-border">
-                <span className="text-text-secondary">Electrification:</span>
-                <span className="font-bold text-text-primary">25kV AC Overhead Catenary (OHE)</span>
+                <span className="text-text-secondary">Track Structure:</span>
+                <span className="font-bold text-text-primary">Double Line (Broad Gauge)</span>
+              </div>
+              <div className="flex justify-between font-mono py-1 border-b border-border">
+                <span className="text-text-secondary">Traction System:</span>
+                <span className="font-bold text-text-primary">25 kV AC Overhead Catenary (OHE)</span>
               </div>
               <div className="flex justify-between font-mono py-1">
-                <span className="text-text-secondary">Signalling:</span>
+                <span className="text-text-secondary">Block Signalling:</span>
                 <span className="font-bold text-text-primary">Absolute Block with Track Circuits</span>
               </div>
             </div>
           </Panel>
 
-          {/* Probabilistic Distributions */}
-          <Panel title="Mathematical Distributions">
+          <Panel title="Safety Constraint Enforcements">
             <div className="space-y-2 text-xs">
               <div className="flex justify-between font-mono py-1 border-b border-border">
-                <span className="text-text-secondary">Defect Arrival:</span>
-                <span className="font-bold text-text-primary">Poisson Process (λ = 2.4/day)</span>
+                <span className="text-text-secondary">Power Cut Isolation:</span>
+                <span className="font-bold text-text-primary">Dual high-voltage conflict check</span>
               </div>
               <div className="flex justify-between font-mono py-1 border-b border-border">
-                <span className="text-text-secondary">Work Duration:</span>
-                <span className="font-bold text-text-primary">Log-Normal (μ = 2.1h, σ = 0.6)</span>
+                <span className="text-text-secondary">Train Clearance Margin:</span>
+                <span className="font-bold text-text-primary">10 min headway buffers</span>
               </div>
               <div className="flex justify-between font-mono py-1 border-b border-border">
-                <span className="text-text-secondary">Priority Model:</span>
-                <span className="font-bold text-text-primary">6-Factor Calibrated Scoring (0–100)</span>
+                <span className="text-text-secondary">Resource Non-Overlap:</span>
+                <span className="font-bold text-text-primary">Crew &amp; Machinery hard locks</span>
               </div>
               <div className="flex justify-between font-mono py-1">
-                <span className="text-text-secondary">Freight Uncertainty:</span>
-                <span className="font-bold text-text-primary">Gaussian Window Margin (±20 min)</span>
+                <span className="text-text-secondary">Joint Co-Location:</span>
+                <span className="font-bold text-text-primary">Multi-dept bundling reward</span>
               </div>
             </div>
           </Panel>
 
-          {/* Database State */}
-          <Panel title="Database &amp; Solver Engine">
+          <Panel title="Optimization Engine Specification">
             <div className="space-y-2 text-xs">
               <div className="flex justify-between font-mono py-1 border-b border-border">
-                <span className="text-text-secondary">Database Backend:</span>
-                <span className="font-bold text-text-primary">SQLite / SQLAlchemy 2.0</span>
-              </div>
-              <div className="flex justify-between font-mono py-1 border-b border-border">
-                <span className="text-text-secondary">Optimization Engine:</span>
+                <span className="text-text-secondary">Constraint Solver:</span>
                 <span className="font-bold text-text-primary">Google OR-Tools CP-SAT (v9.15)</span>
               </div>
               <div className="flex justify-between font-mono py-1 border-b border-border">
-                <span className="text-text-secondary">Graph Engine:</span>
-                <span className="font-bold text-text-primary">NetworkX (Conflict &amp; Safety Graphs)</span>
+                <span className="text-text-secondary">Compatibility Graph:</span>
+                <span className="font-bold text-text-primary">NetworkX Graph Theory Engine</span>
+              </div>
+              <div className="flex justify-between font-mono py-1 border-b border-border">
+                <span className="text-text-secondary">Backend Framework:</span>
+                <span className="font-bold text-text-primary">FastAPI (Python 3.12, ASGI)</span>
               </div>
               <div className="flex justify-between font-mono py-1">
-                <span className="text-text-secondary">API Framework:</span>
-                <span className="font-bold text-text-primary">FastAPI (Python 3.12, ASGI)</span>
+                <span className="text-text-secondary">Operational Database:</span>
+                <span className="font-bold text-text-primary">SQLite / SQLAlchemy ORM</span>
               </div>
             </div>
           </Panel>

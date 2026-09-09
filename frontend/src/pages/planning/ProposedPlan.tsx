@@ -273,6 +273,7 @@ export default function ProposedPlan() {
           </div>
         </div>
 
+
         {/* ── GANTT POSSESSION TIMELINE ── */}
         <OperationalGanttTimeline
           sections={sections}
