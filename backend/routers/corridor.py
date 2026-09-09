@@ -404,7 +404,14 @@ def create_train_movement(req: TrainMovementCreate, db: Session = Depends(get_db
     if not sec:
         raise HTTPException(status_code=400, detail="Railway section not found")
 
-    if req.exit_time <= req.entry_time:
+    entry = req.entry_time
+    if entry.tzinfo is not None:
+        entry = entry.replace(tzinfo=None)
+    exit_t = req.exit_time
+    if exit_t.tzinfo is not None:
+        exit_t = exit_t.replace(tzinfo=None)
+
+    if exit_t <= entry:
         raise HTTPException(status_code=400, detail="Exit time must be after entry time")
 
     tm = TrainMovement(
@@ -412,8 +419,8 @@ def create_train_movement(req: TrainMovementCreate, db: Session = Depends(get_db
         section_id=sec.id,
         train_type=req.train_type,
         train_number=req.train_number,
-        entry_time=req.entry_time,
-        exit_time=req.exit_time,
+        entry_time=entry,
+        exit_time=exit_t,
         priority=req.priority,
         forecast_confidence=req.forecast_confidence,
         source=req.source,
@@ -457,9 +464,15 @@ def update_train_movement(train_id: str, req: TrainMovementUpdate, db: Session =
         if sec:
             tm.section_id = sec.id
     if req.entry_time is not None:
-        tm.entry_time = req.entry_time
+        e = req.entry_time
+        if e.tzinfo is not None:
+            e = e.replace(tzinfo=None)
+        tm.entry_time = e
     if req.exit_time is not None:
-        tm.exit_time = req.exit_time
+        ex = req.exit_time
+        if ex.tzinfo is not None:
+            ex = ex.replace(tzinfo=None)
+        tm.exit_time = ex
     if req.priority is not None:
         tm.priority = req.priority
     if req.forecast_confidence is not None:

@@ -550,7 +550,10 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
     pending = [t for t in all_tasks if t.status == "Pending"]
     critical = [t for t in pending if t.severity in ("Critical", "High")]
     ref_dt = datetime(2026, 9, 7, 8, 0, 0)
-    overdue = [t for t in pending if t.due_date and t.due_date < ref_dt]
+    overdue = [
+        t for t in pending
+        if t.due_date and (t.due_date.replace(tzinfo=None) if t.due_date.tzinfo is not None else t.due_date) < ref_dt
+    ]
 
     dept_counts = {"ENG": 0, "TRD": 0, "SNT": 0}
     for t in all_tasks:

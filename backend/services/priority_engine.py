@@ -43,13 +43,19 @@ def compute_task_features(
     Compute normalized 0-1 feature values for each factor in the explainable formula.
     """
     ref_dt = reference_date or datetime(2026, 9, 7, 8, 0, 0)
+    if ref_dt.tzinfo is not None:
+        ref_dt = ref_dt.replace(tzinfo=None)
+
+    task_due = task.due_date
+    if task_due and task_due.tzinfo is not None:
+        task_due = task_due.replace(tzinfo=None)
 
     # 1. Criticality: Low=0.25, Medium=0.5, High=0.75, Critical=1.0
     crit_val = CRITICALITY_MAP.get(task.severity, 0.50)
 
     # 2. Overdue Severity: max(0, (today - due_date).days) / 30, capped at 1.0
-    if task.due_date and task.due_date < ref_dt:
-        overdue_days = (ref_dt.date() - task.due_date.date()).days
+    if task_due and task_due < ref_dt:
+        overdue_days = (ref_dt.date() - task_due.date()).days
         overdue_val = min(1.0, max(0.0, overdue_days / 30.0))
     else:
         overdue_days = 0

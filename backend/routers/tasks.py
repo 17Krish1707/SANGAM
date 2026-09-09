@@ -405,7 +405,13 @@ def create_task(req: TaskCreateRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Estimated duration must be greater than 0 minutes")
 
     detected = req.detected_at or datetime.utcnow()
+    if detected.tzinfo is not None:
+        detected = detected.replace(tzinfo=None)
+
     due = req.due_date or (detected + timedelta(days=7))
+    if due.tzinfo is not None:
+        due = due.replace(tzinfo=None)
+
     if due < detected:
         raise HTTPException(status_code=400, detail="Due date cannot be before detected date")
 
@@ -460,7 +466,7 @@ def create_task(req: TaskCreateRequest, db: Session = Depends(get_db)):
         maintenance_type=req.maintenance_type,
         severity=req.severity,
         detected_at=detected,
-        due_date=req.due_date,
+        due_date=due,
         estimated_duration_min=req.estimated_duration_min,
         minimum_contiguous_block_min=min_block,
         requires_power_isolation=req.requires_power_isolation,
@@ -535,9 +541,15 @@ def update_task(task_id: str, req: TaskUpdateRequest, db: Session = Depends(get_
     if req.severity is not None:
         task.severity = req.severity
     if req.detected_at is not None:
-        task.detected_at = req.detected_at
+        det = req.detected_at
+        if det.tzinfo is not None:
+            det = det.replace(tzinfo=None)
+        task.detected_at = det
     if req.due_date is not None:
-        task.due_date = req.due_date
+        due = req.due_date
+        if due.tzinfo is not None:
+            due = due.replace(tzinfo=None)
+        task.due_date = due
     if req.estimated_duration_min is not None:
         task.estimated_duration_min = req.estimated_duration_min
     if req.minimum_contiguous_block_min is not None:
@@ -626,10 +638,14 @@ def defer_task(task_id: str, req: TaskDeferRequest, db: Session = Depends(get_db
     if not task:
         raise HTTPException(status_code=404, detail="Maintenance task not found")
 
+    target = req.new_target_date
+    if target and target.tzinfo is not None:
+        target = target.replace(tzinfo=None)
+
     task.status = "Deferred"
     task.deferred_reason = req.reason
-    task.deferred_until = req.new_target_date
-    task.due_date = req.new_target_date
+    task.deferred_until = target
+    task.due_date = target
     task.priority_score = compute_priority_score(task)
 
     db.commit()
