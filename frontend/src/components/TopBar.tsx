@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePlanningContext, DEFAULT_CORRIDOR_NAME } from '../context/PlanningContext';
 import RailwaySectionStrip from './railway/RailwaySectionStrip';
@@ -20,19 +19,21 @@ export default function TopBar({
     selectedHorizon,
     setSelectedHorizon,
     selectedDate,
-    setSelectedDate,
+    planningWeekStart,
+    planningWeekEnd,
+    shiftPlanningWeek,
+    setPlanningDate,
     isGenerating,
   } = usePlanningContext();
 
-  const [date, setDate] = useState(selectedDate);
+  const startObj = new Date(planningWeekStart);
+  const endObj = new Date(planningWeekEnd);
+  const startDay = startObj.getDate().toString().padStart(2, '0');
+  const endDay = endObj.getDate().toString().padStart(2, '0');
+  const monthName = endObj.toLocaleDateString('en-GB', { month: 'short' });
+  const year = endObj.getFullYear();
+  const weekLabel = `${startDay}–${endDay} ${monthName} ${year}`;
 
-  const shiftDays = (delta: number) => {
-    const d = new Date(date);
-    d.setDate(d.getDate() + delta);
-    const next = d.toISOString().split('T')[0];
-    setDate(next);
-    setSelectedDate(next);
-  };
 
   return (
     <div className="flex flex-col flex-shrink-0">
@@ -113,20 +114,28 @@ export default function TopBar({
           </div>
 
           {/* Date / Week Navigator */}
-          <div className="flex items-center border border-border rounded-md overflow-hidden text-xs text-text-secondary">
+          <div className="flex items-center border border-border rounded-md overflow-hidden text-xs text-text-secondary bg-white shadow-xs">
             <button
-              onClick={() => shiftDays(-7)}
-              className="px-2 py-1 hover:bg-panel transition-colors"
+              onClick={() => shiftPlanningWeek(-1)}
+              className="px-2 py-1 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Previous planning week"
               aria-label="Previous week"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <span className="px-3 py-1 border-x border-border font-medium text-text-primary tabular-nums whitespace-nowrap">
-              07–13 Sep 2026
-            </span>
+            <label className="relative px-2.5 py-1 border-x border-border font-medium text-text-primary tabular-nums whitespace-nowrap cursor-pointer hover:bg-slate-50 flex items-center gap-1.5" title="Click to pick a specific operating date">
+              <span>{weekLabel}</span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => e.target.value && setPlanningDate(e.target.value)}
+                className="opacity-0 w-0 h-0 absolute pointer-events-auto cursor-pointer"
+              />
+            </label>
             <button
-              onClick={() => shiftDays(7)}
-              className="px-2 py-1 hover:bg-panel transition-colors"
+              onClick={() => shiftPlanningWeek(1)}
+              className="px-2 py-1 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Next planning week"
               aria-label="Next week"
             >
               <ChevronRight className="w-3.5 h-3.5" />

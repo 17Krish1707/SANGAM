@@ -32,13 +32,16 @@ import {
   Info,
   Calendar,
   Wrench,
+  Network,
 } from 'lucide-react';
+import { DepartmentCompatibilityMatrix } from '../../components/planning/DepartmentCompatibilityMatrix';
 
 export default function ProposedPlan() {
-  const { activePlan, refreshAll, userRole, setWorkflowStage } = usePlanning();
+  const { activePlan, refreshAll, userRole, setWorkflowStage, planningWeekStart } = usePlanning();
   const [selectedBlock, setSelectedBlock] = useState<GeneratedBlock | null>(null);
   const [sections, setSections] = useState<Section[]>([]);
   const [trains, setTrains] = useState<TimetableTrain[]>([]);
+  const [activeView, setActiveView] = useState<'gantt' | 'compatibility'>('gantt');
 
   // Modify Modal state
   const [modifyModalOpen, setModifyModalOpen] = useState(false);
@@ -189,6 +192,10 @@ export default function ProposedPlan() {
   const jointBlocks = blocks.filter((b) => b.is_joint_block).length;
   const approvedBlocks = blocks.filter((b) => b.approval_status === 'approved').length;
 
+  const effectiveBaseDate = activePlan?.blocks?.[0]?.block_start
+    ? activePlan.blocks[0].block_start.slice(0, 10)
+    : (planningWeekStart || '2026-09-08');
+
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#F6F8FB] text-[#172033]">
       <TopBar title="Proposed Block Plan" subtitle="AI-Generated Coordinated Possession Schedule & Interactive Timeline" />
@@ -273,16 +280,55 @@ export default function ProposedPlan() {
           </div>
         </div>
 
+        {/* Visualizer Mode Toggle */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white px-4 py-3 rounded-xl border border-[#D9E1EA] shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-[#172033] uppercase font-mono">Plan Visualizer:</span>
+            <div className="flex bg-[#F1F5F9] p-1 rounded-lg text-xs font-semibold">
+              <button
+                onClick={() => setActiveView('gantt')}
+                className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all cursor-pointer ${
+                  activeView === 'gantt'
+                    ? 'bg-white text-[#173F7A] shadow-xs font-bold'
+                    : 'text-[#667085] hover:text-[#172033]'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Operational Gantt & Timeline</span>
+              </button>
+              <button
+                onClick={() => setActiveView('compatibility')}
+                className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all cursor-pointer ${
+                  activeView === 'compatibility'
+                    ? 'bg-white text-[#173F7A] shadow-xs font-bold'
+                    : 'text-[#667085] hover:text-[#172033]'
+                }`}
+              >
+                <Network className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Department Compatibility & Joint Bundles</span>
+              </button>
+            </div>
+          </div>
+          <span className="text-[11px] text-[#667085] font-mono">
+            Timeline Base Date: <strong className="text-[#172033]">{effectiveBaseDate}</strong>
+          </span>
+        </div>
 
-        {/* ── GANTT POSSESSION TIMELINE ── */}
-        <OperationalGanttTimeline
-          sections={sections}
-          blocks={blocks}
-          trains={trains}
-          selectedBlockId={selectedBlock?.id}
-          onSelectBlock={handleSelectBlock}
-          baseDate="2026-09-08"
-        />
+        {/* ── VISUALIZER VIEW ── */}
+        {activeView === 'gantt' ? (
+          <OperationalGanttTimeline
+            sections={sections}
+            blocks={blocks}
+            trains={trains}
+            selectedBlockId={selectedBlock?.id}
+            onSelectBlock={handleSelectBlock}
+            baseDate={effectiveBaseDate}
+          />
+        ) : (
+          <DepartmentCompatibilityMatrix
+            sections={sections}
+          />
+        )}
 
         {/* ── MAIN CONTENT: SCHEDULE LIST & EXPLAINABLE INSPECTOR ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

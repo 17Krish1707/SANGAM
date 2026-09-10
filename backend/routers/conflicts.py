@@ -43,3 +43,17 @@ def list_conflicts(
         })
 
     return result
+
+
+@router.get("/compatibility-matrix")
+def get_corridor_compatibility_matrix(
+    section_id: Optional[str] = Query(None, description="Optional railway section ID filter"),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns full data-driven inter-department compatibility and joint work graph
+    for active tasks across the corridor.
+    """
+    from backend.services.compatibility_graph import build_corridor_compatibility_matrix
+    return build_corridor_compatibility_matrix(db, section_id=section_id)
+

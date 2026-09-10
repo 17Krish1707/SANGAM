@@ -23,6 +23,10 @@ interface PlanningContextType {
   setSelectedSectionId: (id: string | null) => void;
   selectedDate: string;
   setSelectedDate: (date: string) => void;
+  planningWeekStart: string;
+  planningWeekEnd: string;
+  shiftPlanningWeek: (deltaWeeks: number) => void;
+  setPlanningDate: (date: string) => void;
   selectedHorizon: HorizonType;
   setSelectedHorizon: (h: HorizonType) => void;
   selectedObjectiveProfile: ObjectiveProfile;
@@ -61,7 +65,21 @@ interface PlanningContextType {
 
 const PlanningContext = createContext<PlanningContextType | undefined>(undefined);
 
-export const DEFAULT_OPERATING_DATE = new Date().toISOString().split('T')[0];
+export function getMonday(isoDate: string): string {
+  const d = new Date(isoDate);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().split('T')[0];
+}
+
+export function addDays(isoDate: string, n: number): string {
+  const d = new Date(isoDate);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+}
+
+export const DEFAULT_OPERATING_DATE = '2026-09-08';
 export const DEFAULT_CORRIDOR_NAME = 'Mumbai Suburban Corridor';
 
 export function PlanningProvider({ children }: { children: React.ReactNode }) {
@@ -72,6 +90,17 @@ export function PlanningProvider({ children }: { children: React.ReactNode }) {
   const [selectedHorizon, setSelectedHorizon] = useState<HorizonType>('weekly');
   const [selectedObjectiveProfile, setSelectedObjectiveProfile] = useState<ObjectiveProfile>('balanced');
   const [selectedRunType, setSelectedRunType] = useState<string>('sangam_optimized');
+
+  const planningWeekStart = getMonday(selectedDate);
+  const planningWeekEnd = addDays(planningWeekStart, 6);
+
+  const shiftPlanningWeek = useCallback((deltaWeeks: number) => {
+    setSelectedDate((curr) => addDays(curr, deltaWeeks * 7));
+  }, []);
+
+  const setPlanningDate = useCallback((date: string) => {
+    setSelectedDate(date);
+  }, []);
 
   const [sections, setSections] = useState<Section[]>([]);
   const [latestRuns, setLatestRuns] = useState<LatestRunsResponse | null>(null);
@@ -249,6 +278,10 @@ export function PlanningProvider({ children }: { children: React.ReactNode }) {
         setSelectedSectionId,
         selectedDate,
         setSelectedDate,
+        planningWeekStart,
+        planningWeekEnd,
+        shiftPlanningWeek,
+        setPlanningDate,
         selectedHorizon,
         setSelectedHorizon,
         selectedObjectiveProfile,

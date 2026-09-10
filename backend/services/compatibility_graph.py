@@ -92,29 +92,154 @@ def build_section_graph(
             id_b = str(t_b.id)
 
             if not graph.has_edge(id_a, id_b):
-                # Rule 1: Both require power isolation -> Conflict
-                if t_a.requires_power_isolation and t_b.requires_power_isolation:
+                dept_a = t_a.department.code if t_a.department else "GEN"
+                dept_b = t_b.department.code if t_b.department else "GEN"
+
+                # Check if tasks cannot run in parallel
+                if not t_a.can_run_parallel or not t_b.can_run_parallel:
                     graph.add_edge(
                         id_a,
                         id_b,
                         relationship="conflict",
-                        notes="Inferred: Both tasks mandate power isolation on the same section.",
+                        notes=f"Safety Exclusion: Task {t_a.task_code or id_a[:6]} or {t_b.task_code or id_b[:6]} prohibits parallel occupancy.",
                     )
-                # Rule 2: Same dept, can run parallel, combined duration <= 180 min -> Compatible
-                elif (
-                    t_a.department_id == t_b.department_id
-                    and t_a.can_run_parallel
-                    and t_b.can_run_parallel
-                    and (t_a.estimated_duration_min + t_b.estimated_duration_min) <= 180
-                ):
-                    graph.add_edge(
-                        id_a,
-                        id_b,
-                        relationship="compatible",
-                        notes="Inferred: Parallel-safe, same department, within 180 min block.",
-                    )
+                else:
+                    # Check for resource competition if both require the same resource
+                    res_a = {str(rr.resource_id) for rr in (t_a.resource_requirements or [])}
+                    res_b = {str(rr.resource_id) for rr in (t_b.resource_requirements or [])}
+                    common_res = res_a.intersection(res_b)
+
+                    if common_res:
+                        graph.add_edge(
+                            id_a,
+                            id_b,
+                            relationship="conflict",
+                            notes="Resource Competition: Both tasks require the same physical crew or track machine.",
+                        )
+                    # Multi-department joint block co-location: Both allow parallel work on same section!
+                    elif dept_a != dept_b and t_a.can_run_parallel and t_b.can_run_parallel:
+                        graph.add_edge(
+                            id_a,
+                            id_b,
+                            relationship="compatible",
+                            notes=f"Joint Block Eligible: Multi-department ({dept_a} + {dept_b}) safe co-location under single possession.",
+                        )
+                    # Same department parallel execution
+                    elif dept_a == dept_b and t_a.can_run_parallel and t_b.can_run_parallel:
+                        graph.add_edge(
+                            id_a,
+                            id_b,
+                            relationship="compatible",
+                            notes=f"Parallel-Safe: Same department ({dept_a}) concurrent execution.",
+                        )
 
     return graph
+
+
+def build_corridor_compatibility_matrix(
+    db: Session,
+    section_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Build a comprehensive, data-driven compatibility analysis across tasks.
+    Returns:
+    - nodes: task details with department styling
+    - edges: compatible, conflict, and dependency edges with detailed rationale
+    - joint_candidates: groups of tasks that can safely be bundled into a joint block
+    - department_matrix: co-location compatibility policy summary across ENG, TRD, and S&T
+    """
+    from backend.models.section import RailwaySection
+    query = db.query(MaintenanceTask)
+    if section_id:
+        query = query.filter(MaintenanceTask.section_id == section_id)
+    tasks = query.all()
+
+    sections = {str(s.id): s.name for s in db.query(RailwaySection).all()}
+
+    # Build graph per section or overall
+    nodes = []
+    edges = []
+    joint_candidates = []
+
+    tasks_by_sec: Dict[str, List[MaintenanceTask]] = {}
+    for t in tasks:
+        sec_key = str(t.section_id)
+        tasks_by_sec.setdefault(sec_key, []).append(t)
+
+    for sec_id, sec_tasks in tasks_by_sec.items():
+        sec_graph = build_section_graph(db, section_id=sec_id, tasks=sec_tasks)
+        sec_dict = graph_to_dict(sec_graph)
+        
+        # Attach section name to nodes
+        sec_name = sections.get(sec_id, "Corridor Section")
+        for n in sec_dict["nodes"]:
+            n["section_id"] = sec_id
+            n["section_name"] = sec_name
+            nodes.append(n)
+        for e in sec_dict["edges"]:
+            e["section_name"] = sec_name
+            edges.append(e)
+
+        # Compute clusters
+        clusters = get_compatible_clusters(sec_graph)
+        for cl in clusters:
+            cl_tasks = [t for t in sec_tasks if str(t.id) in cl]
+            depts = list({t.department.code if t.department else "GEN" for t in cl_tasks})
+            is_cross_dept = len(depts) > 1
+            joint_candidates.append({
+                "section_id": sec_id,
+                "section_name": sec_name,
+                "task_ids": list(cl),
+                "tasks": [
+                    {
+                        "id": str(t.id),
+                        "code": t.task_code,
+                        "title": t.maintenance_type,
+                        "dept": t.department.code if t.department else "GEN",
+                        "duration": t.estimated_duration_min,
+                        "power_cut": t.requires_power_isolation,
+                    }
+                    for t in cl_tasks
+                ],
+                "departments": depts,
+                "is_cross_department": is_cross_dept,
+                "max_duration": max((t.estimated_duration_min for t in cl_tasks), default=90),
+            })
+
+    # Standard Statutory Department Co-Location Rules (RDSO Baseline)
+    department_matrix = [
+        {
+            "dept_pair": "ENG + TRD",
+            "name": "Civil Engineering & Traction Distribution",
+            "compatibility": "Compatible (High Co-location Value)",
+            "safety_protocol": "Requires joint 25kV OHE isolation & adjacent track clearance. Track tamping/welding and catenary inspection execute concurrently.",
+            "status": "Recommended",
+        },
+        {
+            "dept_pair": "ENG + SNT",
+            "name": "Civil Engineering & Signalling/Telecom",
+            "compatibility": "Compatible (Medium Co-location Value)",
+            "safety_protocol": "Track circuit calibration, point machine testing, and turnout packing require coordinated mechanical & electrical handover.",
+            "status": "Recommended",
+        },
+        {
+            "dept_pair": "TRD + SNT",
+            "name": "Traction Distribution & Signalling",
+            "compatibility": "Compatible (Selective)",
+            "safety_protocol": "Signal mast cabling and OHE bond renewals allowed. Heavy tower wagon movements require S&T cable detection clearance.",
+            "status": "Conditional",
+        },
+    ]
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "joint_candidates": joint_candidates,
+        "department_matrix": department_matrix,
+        "total_tasks": len(nodes),
+        "total_relationships": len(edges),
+        "joint_candidate_clusters": len(joint_candidates),
+    }
 
 
 def get_compatible_clusters(graph: nx.Graph) -> List[Set[str]]:

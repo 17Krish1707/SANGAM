@@ -63,7 +63,13 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
 
   // Generate hourly ticks
   const hourlyTicks = Array.from({ length: 24 }, (_, i) => i);
-  const weekDays = ['Tue 08', 'Wed 09', 'Thu 10', 'Fri 11', 'Sat 12', 'Sun 13', 'Mon 14'];
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(`${baseDate}T00:00:00`);
+    d.setDate(d.getDate() + i);
+    const dayStr = d.toLocaleDateString('en-GB', { weekday: 'short' });
+    const numStr = d.getDate().toString().padStart(2, '0');
+    return `${dayStr} ${numStr}`;
+  });
 
   // Global Conflict calculation across all visible sections
   const conflicts: Array<{
@@ -142,28 +148,26 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
 
           {/* Sub-lane & Element Legend */}
           <div className="hidden lg:flex items-center gap-3 text-[11px] font-medium text-[#667085]">
+            <span className="flex items-center gap-1" title="Outer envelope authorized for track possession">
+              <span className="w-3.5 h-2.5 rounded border border-dashed border-indigo-400 bg-indigo-50/80"></span>
+              Possession Window
+            </span>
+            <span className="flex items-center gap-1" title="Actual physical maintenance work execution">
+              <span className="w-3 h-2 rounded bg-[#173F7A]"></span>
+              Task Work Duration
+            </span>
+            <span className="flex items-center gap-1" title="Time reserved for inspection and track handback">
+              <span className="w-2.5 h-2 rounded border border-dashed border-amber-400 bg-amber-100"></span>
+              Buffer & Handback
+            </span>
             <span className="flex items-center gap-1">
               <span className="w-3 h-2 rounded bg-sky-600 text-white"></span>
-              Passenger Train
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-2 rounded bg-amber-600 text-white"></span>
-              Goods Train
-            </span>
-            <span className="flex items-center gap-1" title="10-minute protected clearance buffer before and after every train">
-              <span className="w-2.5 h-2 rounded border border-dashed border-amber-400 bg-amber-100/50"></span>
-              10m Safety Buffer
+              Train
             </span>
             <span className="flex items-center gap-1 font-bold text-[#173F7A]">
               <span className="w-3 h-2.5 rounded bg-gradient-to-r from-blue-200 via-amber-200 to-indigo-200 border-2 border-indigo-500"></span>
               JOINT BLOCK
             </span>
-            {conflicts.length > 0 && (
-              <span className="flex items-center gap-1 font-bold text-red-600 animate-pulse">
-                <span className="w-3 h-2.5 rounded border border-red-500 bg-red-200"></span>
-                Active Conflict ({conflicts.length})
-              </span>
-            )}
           </div>
         </div>
       </div>
@@ -267,9 +271,9 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                           <TrainIcon className="w-3 h-3 text-sky-600" />
                           <span>TRAINS ({secTrains.length})</span>
                         </div>
-                        <div className="h-12 px-2.5 flex items-center gap-1.5 text-indigo-800 bg-indigo-50/40">
+                        <div className="h-16 px-2.5 flex items-center gap-1.5 text-indigo-800 bg-indigo-50/40">
                           <Clock className="w-3 h-3 text-indigo-600" />
-                          <span>BLOCKS ({secBlocks.length})</span>
+                          <span>POSSESSIONS ({secBlocks.length})</span>
                         </div>
                       </div>
                     </div>
@@ -316,82 +320,59 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                         );
                       })}
 
-                      {/* ── Sub-lane 1: TRAIN MOVEMENTS ───────────────────────── */}
-                      <div className="h-9 relative border-b border-dashed border-slate-200 z-5">
+                      {/* ── Sub-lane 1: TRAINS ───────────────────────────────── */}
+                      <div className="h-9 relative border-b border-slate-100 flex items-center z-5">
                         {secTrains.map((tr) => {
                           const { leftPx, widthPx } = getLeftAndWidth(tr.entry_time, tr.exit_time);
-                          const bufferPx = (10 / 60) * hourWidth; // 10-minute safety buffer width
-                          const isDelayed = Boolean(tr.delay_minutes && tr.delay_minutes > 0);
-                          const isPassenger = tr.train_type === 'Passenger';
+                          const isGoods = tr.train_type.toLowerCase().includes('goods');
+                          const isDelayed = tr.delay_minutes && tr.delay_minutes > 0;
+                          const bufferPx = (10 / 60) * hourWidth; // 10 min rear buffer
 
                           return (
                             <div
                               key={tr.id}
-                              style={{
-                                left: `${Math.max(0, leftPx - bufferPx)}px`,
-                                width: `${widthPx + bufferPx * 2}px`,
+                              onMouseEnter={(e) => {
+                                setHoveredTrain({ train: tr, x: e.clientX, y: e.clientY });
                               }}
-                              className="absolute top-1 bottom-1 flex items-center z-10 select-none group/train cursor-pointer"
-                              onMouseEnter={(e) =>
-                                setHoveredTrain({ train: tr, x: e.clientX, y: e.clientY })
-                              }
-                              onMouseMove={(e) =>
-                                setHoveredTrain({ train: tr, x: e.clientX, y: e.clientY })
-                              }
+                              onMouseMove={(e) => {
+                                setHoveredTrain({ train: tr, x: e.clientX, y: e.clientY });
+                              }}
                               onMouseLeave={() => setHoveredTrain(null)}
+                              style={{
+                                left: `${leftPx}px`,
+                                width: `${widthPx + bufferPx}px`,
+                              }}
+                              className="absolute h-7 flex items-center transition-transform hover:scale-[1.02] cursor-pointer"
                             >
-                              {/* 10-minute Front Safety Buffer Wing */}
-                              <div
-                                style={{ width: `${bufferPx}px` }}
-                                className="h-full border border-dashed border-amber-400 bg-amber-100/40 rounded-l flex items-center justify-center"
-                                title="10-minute protected safety buffer before train entry"
-                              >
-                                <span className="text-[7px] font-mono text-amber-700 font-bold hidden sm:inline">
-                                  10m
-                                </span>
-                              </div>
-
-                              {/* Main Train Body Bar */}
+                              {/* Main Train Body */}
                               <div
                                 style={{ width: `${widthPx}px` }}
-                                className={`h-full flex items-center justify-between px-1.5 shadow-xs border text-white font-mono transition-transform hover:scale-[1.02] ${
-                                  isPassenger
-                                    ? 'bg-gradient-to-r from-sky-600 to-blue-700 border-blue-500'
-                                    : 'bg-gradient-to-r from-amber-600 to-emerald-700 border-amber-500'
+                                className={`h-full rounded-l px-2 flex items-center justify-between text-white text-[10px] font-mono font-bold shadow-xs border ${
+                                  isGoods
+                                    ? 'bg-amber-600 border-amber-700'
+                                    : 'bg-sky-600 border-sky-700'
                                 }`}
                               >
-                                <div className="flex items-center gap-1 truncate text-[10px] font-bold">
+                                <div className="flex items-center gap-1 truncate">
                                   <TrainIcon className="w-3 h-3 flex-shrink-0" />
                                   <span className="truncate">{tr.train_number}</span>
                                   <span className="text-[8px] font-normal opacity-90 hidden md:inline">
                                     · {tr.train_type}
                                   </span>
                                 </div>
-
                                 {isDelayed && (
                                   <span className="px-1 py-0.2 rounded bg-red-500 text-white text-[8px] font-black tracking-tight animate-pulse ml-1">
                                     +{tr.delay_minutes}m
                                   </span>
                                 )}
                               </div>
-
-                              {/* 10-minute Rear Safety Buffer Wing */}
-                              <div
-                                style={{ width: `${bufferPx}px` }}
-                                className="h-full border border-dashed border-amber-400 bg-amber-100/40 rounded-r flex items-center justify-center"
-                                title="10-minute protected safety buffer after train exit"
-                              >
-                                <span className="text-[7px] font-mono text-amber-700 font-bold hidden sm:inline">
-                                  10m
-                                </span>
-                              </div>
                             </div>
                           );
                         })}
                       </div>
 
-                      {/* ── Sub-lane 2: MAINTENANCE BLOCKS ─────────────────────── */}
-                      <div className="h-12 relative z-5">
+                      {/* ── Sub-lane 2: MAINTENANCE POSSESSION WINDOW & TASKS ── */}
+                      <div className="h-16 relative z-5 flex items-center">
                         {secBlocks.map((b) => {
                           const { leftPx, widthPx } = getLeftAndWidth(b.block_start, b.block_end);
                           const isSelected = selectedBlockId === b.id;
@@ -409,20 +390,24 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                           // Check if this block is involved in a conflict
                           const hasConflict = secConflicts.some((c) => c.block.id === b.id);
 
+                          // Work tasks duration vs authorized possession duration
+                          const maxTaskDuration = b.tasks && b.tasks.length > 0
+                            ? Math.max(...b.tasks.map((t) => t.duration_min || 0))
+                            : Math.min(b.duration_min, 120);
+                          const effectiveTaskDuration = Math.min(b.duration_min, maxTaskDuration > 0 ? maxTaskDuration : b.duration_min);
+                          const bufferMin = Math.max(0, b.duration_min - effectiveTaskDuration);
+                          const taskWidthPct = Math.min(100, Math.max(15, (effectiveTaskDuration / b.duration_min) * 100));
+                          const bufferWidthPct = 100 - taskWidthPct;
+
                           // Department styling
                           const dept = b.departments?.[0] || 'ENG';
-                          let blockStyle = 'bg-blue-100 text-blue-900 border-blue-400';
+                          let taskBarBg = 'bg-[#173F7A] text-white';
                           if (isJoint) {
-                            blockStyle =
-                              'bg-gradient-to-r from-blue-50 via-amber-50 to-indigo-50 border-2 border-indigo-500 text-[#172033] shadow-sm';
+                            taskBarBg = 'bg-gradient-to-r from-[#173F7A] via-amber-600 to-indigo-600 text-white';
                           } else if (dept === 'TRD') {
-                            blockStyle = 'bg-amber-100 text-amber-900 border-amber-400';
+                            taskBarBg = 'bg-amber-600 text-white';
                           } else if (dept === 'SNT' || dept === 'SIG') {
-                            blockStyle = 'bg-indigo-100 text-indigo-900 border-indigo-400';
-                          }
-
-                          if (hasConflict) {
-                            blockStyle += ' border-red-500 ring-2 ring-red-400/70 animate-pulse';
+                            taskBarBg = 'bg-indigo-600 text-white';
                           }
 
                           return (
@@ -445,14 +430,23 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                                 left: `${leftPx}px`,
                                 width: `${widthPx}px`,
                               }}
-                              className={`absolute top-1 bottom-1 rounded-lg border px-2 py-0.5 cursor-pointer transition-all flex flex-col justify-between z-10 ${blockStyle} ${
+                              className={`absolute top-1 bottom-1 rounded-lg border-2 border-dashed p-1 cursor-pointer transition-all flex flex-col justify-between z-10 ${
+                                isJoint
+                                  ? 'border-indigo-500 bg-indigo-50/70 shadow-xs'
+                                  : 'border-[#173F7A]/60 bg-blue-50/50'
+                              } ${
+                                hasConflict
+                                  ? 'border-red-500 ring-2 ring-red-400/70 animate-pulse'
+                                  : ''
+                              } ${
                                 isSelected
                                   ? 'ring-3 ring-[#173F7A] ring-offset-1 scale-[1.02] shadow-md z-20'
                                   : 'hover:scale-[1.01]'
                               }`}
                             >
-                              <div className="flex items-center justify-between gap-1 overflow-hidden leading-tight">
-                                <div className="flex items-center gap-1 truncate">
+                              {/* Top Bar: Authorized Possession Window Info */}
+                              <div className="flex items-center justify-between gap-1 overflow-hidden leading-tight pb-0.5 text-[9px] font-mono">
+                                <div className="flex items-center gap-1 truncate text-[#172033]">
                                   {hasConflict ? (
                                     <span className="px-1 py-0.2 rounded bg-red-600 text-white text-[8px] font-black tracking-tight font-mono flex items-center gap-0.5">
                                       <AlertTriangle className="w-2.5 h-2.5" />
@@ -460,18 +454,16 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                                     </span>
                                   ) : isJoint ? (
                                     <span className="px-1 py-0.2 rounded bg-indigo-600 text-white text-[8px] font-black tracking-tight font-mono">
-                                      JOINT
+                                      JOINT WINDOW
                                     </span>
                                   ) : (
-                                    <span className="px-1 py-0.2 rounded bg-white/80 border border-current text-[8px] font-bold font-mono">
-                                      {dept}
+                                    <span className="px-1 py-0.2 rounded bg-white border border-[#173F7A]/40 text-[#173F7A] text-[8px] font-bold font-mono">
+                                      POSSESSION {b.duration_min}m
                                     </span>
                                   )}
-                                  {widthPx > 80 && (
-                                    <span className="text-[10px] font-bold truncate">
-                                      {isJoint
-                                        ? b.departments?.join(' · ') || 'ENG · TRD · S&T'
-                                        : b.tasks?.[0]?.task_code || 'Block'}
+                                  {widthPx > 110 && (
+                                    <span className="font-semibold text-slate-700 truncate">
+                                      {startTime}–{endTime}
                                     </span>
                                   )}
                                 </div>
@@ -479,27 +471,50 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                                 <div className="flex items-center gap-1 flex-shrink-0">
                                   {b.locked && (
                                     <span title="Locked possession">
-                                      <Lock className="w-3 h-3 text-[#173F7A]" />
+                                      <Lock className="w-2.5 h-2.5 text-[#173F7A]" />
                                     </span>
                                   )}
                                   {isApproved && (
                                     <span title="Approved">
-                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
                                     </span>
                                   )}
                                 </div>
                               </div>
 
-                              <div className="flex items-center justify-between text-[9px] font-mono leading-none">
-                                {widthPx > 90 ? (
-                                  <>
-                                    <span className="font-semibold">
-                                      {startTime}–{endTime}
+                              {/* Inner Container: Solid Task Duration Bar + Buffer Margin */}
+                              <div className="w-full h-6 rounded flex overflow-hidden border border-slate-300 bg-white/70 shadow-xs">
+                                {/* Solid Task Execution Bar */}
+                                <div
+                                  style={{ width: `${taskWidthPct}%` }}
+                                  className={`h-full px-1.5 flex items-center justify-between font-mono font-bold text-[9px] truncate shadow-inner ${taskBarBg}`}
+                                  title={`Actual Work Duration: ${effectiveTaskDuration}m`}
+                                >
+                                  <div className="flex items-center gap-1 truncate">
+                                    <span className="truncate">
+                                      {isJoint
+                                        ? b.departments?.join('·') || 'JOINT WORK'
+                                        : b.tasks?.[0]?.task_code || `${dept} TASK`}
                                     </span>
-                                    <span className="font-bold opacity-80">{b.duration_min}m</span>
-                                  </>
-                                ) : (
-                                  <span className="font-bold">{b.duration_min}m</span>
+                                  </div>
+                                  <span className="flex-shrink-0 opacity-95">
+                                    {effectiveTaskDuration}m
+                                  </span>
+                                </div>
+
+                                {/* Handback Buffer Margin */}
+                                {bufferMin > 0 && (
+                                  <div
+                                    style={{ width: `${bufferWidthPct}%` }}
+                                    className="h-full border-l border-dashed border-amber-400 bg-amber-100/60 flex items-center justify-center font-mono text-[8px] font-bold text-amber-900 px-0.5 truncate"
+                                    title={`Handback & Safety Clearance Margin: ${bufferMin} minutes`}
+                                  >
+                                    {widthPx > 130 ? (
+                                      <span>+{bufferMin}m Buffer</span>
+                                    ) : (
+                                      <span>+{bufferMin}m</span>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -623,17 +638,43 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
 
           <div className="font-bold text-sm">{hoveredBlock.section_name}</div>
 
-          <div className="text-[11px] text-slate-300 font-mono">
-            {new Date(hoveredBlock.block_start).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}{' '}
-            –{' '}
-            {new Date(hoveredBlock.block_end).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}{' '}
-            ({hoveredBlock.duration_min} min)
+          <div className="space-y-1 py-1 border-y border-slate-700 text-[11px] font-mono">
+            <div className="flex justify-between text-slate-300">
+              <span className="text-slate-400">Possession Window:</span>
+              <span className="font-bold text-white">
+                {new Date(hoveredBlock.block_start).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}{' '}
+                –{' '}
+                {new Date(hoveredBlock.block_end).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}{' '}
+                ({hoveredBlock.duration_min}m)
+              </span>
+            </div>
+            {(() => {
+              const maxTask = hoveredBlock.tasks && hoveredBlock.tasks.length > 0
+                ? Math.max(...hoveredBlock.tasks.map((t) => t.duration_min || 0))
+                : hoveredBlock.duration_min;
+              const taskDur = Math.min(hoveredBlock.duration_min, maxTask > 0 ? maxTask : hoveredBlock.duration_min);
+              const buf = Math.max(0, hoveredBlock.duration_min - taskDur);
+              return (
+                <>
+                  <div className="flex justify-between text-sky-300">
+                    <span className="text-slate-400">Work Execution:</span>
+                    <span className="font-bold">{taskDur} min</span>
+                  </div>
+                  {buf > 0 && (
+                    <div className="flex justify-between text-amber-300">
+                      <span className="text-slate-400">Handback Margin:</span>
+                      <span className="font-bold">+{buf} min</span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           <div className="text-[10px] text-slate-400">

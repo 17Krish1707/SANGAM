@@ -36,16 +36,23 @@ import {
 
 export default function CreateBlockPlan() {
   const navigate = useNavigate();
-  const { setWorkflowStage, refreshAll } = usePlanning();
+  const { setWorkflowStage, refreshAll, planningWeekStart, planningWeekEnd } = usePlanning();
 
   const [step, setStep] = useState<number>(1);
   const [selectedObjectiveProfile, setSelectedObjectiveProfile] = useState<string>('balanced');
 
   // Step 1: Period & Corridor
-  const [startDate, setStartDate] = useState('2026-09-08');
-  const [endDate, setEndDate] = useState('2026-09-14');
+  const [startDate, setStartDate] = useState(planningWeekStart || '2026-09-08');
+  const [endDate, setEndDate] = useState(planningWeekEnd || '2026-09-14');
   const [sections, setSections] = useState<Section[]>([]);
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (planningWeekStart && planningWeekEnd) {
+      setStartDate(planningWeekStart);
+      setEndDate(planningWeekEnd);
+    }
+  }, [planningWeekStart, planningWeekEnd]);
 
   // Step 2: Inputs Snapshot
   const [tasks, setTasks] = useState<MaintenanceTask[]>([]);

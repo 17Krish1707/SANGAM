@@ -13,13 +13,13 @@ def compute_candidate_windows(
     end_date: datetime,
     min_buffer_minutes: int = 10,
     train_movements: Optional[List[Any]] = None,
-    max_window_minutes: int = 240,
+    max_window_minutes: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """
     Compute gaps between train movements in a given section within the date range.
     Subtracts min_buffer_minutes from both sides of every gap as safety buffer.
     Discards gaps shorter than 20 minutes.
-    Caps single candidate window duration to max_window_minutes (default 240 min / 4h).
+    Calculates window duration dynamically from actual available traffic gaps.
     """
     if train_movements is None and db is not None:
         trains = (
@@ -49,7 +49,9 @@ def compute_candidate_windows(
             gap_end = min(t_entry, end_date)
 
             window_start = gap_start + buffer_delta
-            window_end = min(gap_end - buffer_delta, window_start + timedelta(minutes=max_window_minutes))
+            window_end = gap_end - buffer_delta
+            if max_window_minutes and max_window_minutes > 0:
+                window_end = min(window_end, window_start + timedelta(minutes=max_window_minutes))
 
             duration_sec = (window_end - window_start).total_seconds()
             if duration_sec >= 20 * 60:
@@ -71,7 +73,9 @@ def compute_candidate_windows(
         gap_end = end_date
 
         window_start = gap_start + buffer_delta
-        window_end = min(gap_end - buffer_delta, window_start + timedelta(minutes=max_window_minutes))
+        window_end = gap_end - buffer_delta
+        if max_window_minutes and max_window_minutes > 0:
+            window_end = min(window_end, window_start + timedelta(minutes=max_window_minutes))
 
         duration_sec = (window_end - window_start).total_seconds()
         if duration_sec >= 20 * 60:

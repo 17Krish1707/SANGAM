@@ -6,7 +6,9 @@ import {
   CheckCircle2,
   ShieldAlert,
   ArrowRight,
+  Network,
 } from 'lucide-react';
+import { DepartmentCompatibilityMatrix } from '../../components/planning/DepartmentCompatibilityMatrix';
 
 interface OperationalException {
   id: string;
@@ -59,7 +61,7 @@ const HARD_CONSTRAINTS = [
 ];
 
 export default function ConflictsExceptions() {
-  const [activeTab, setActiveTab] = useState<'exceptions' | 'advanced'>('exceptions');
+  const [activeTab, setActiveTab] = useState<'exceptions' | 'advanced' | 'compatibility'>('exceptions');
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   const [exceptions, setExceptions] = useState<OperationalException[]>([]);
@@ -110,7 +112,7 @@ export default function ConflictsExceptions() {
         )}
 
         {/* Tab Toggle */}
-        <div className="flex bg-white border border-[#D9E1EA] p-1 rounded-lg w-fit text-xs font-semibold">
+        <div className="flex flex-wrap bg-white border border-[#D9E1EA] p-1 rounded-lg w-fit text-xs font-semibold gap-1">
           <button
             onClick={() => setActiveTab('exceptions')}
             className={`px-4 py-2 rounded-md transition-all flex items-center gap-2 cursor-pointer ${
@@ -121,6 +123,17 @@ export default function ConflictsExceptions() {
           >
             <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
             <span>Actionable Exceptions ({exceptions.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('compatibility')}
+            className={`px-4 py-2 rounded-md transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'compatibility'
+                ? 'bg-[#EBF2FA] text-[#173F7A] font-bold shadow-xs'
+                : 'text-[#667085] hover:text-[#172033]'
+            }`}
+          >
+            <Network className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Department Compatibility & Joint Bundles</span>
           </button>
           <button
             onClick={() => setActiveTab('advanced')}
@@ -209,7 +222,14 @@ export default function ConflictsExceptions() {
           </div>
         )}
 
-        {/* ── TAB 2: CONSTRAINT MATRIX ── */}
+        {/* ── TAB 2: COMPATIBILITY MATRIX ── */}
+        {activeTab === 'compatibility' && (
+          <div className="space-y-4">
+            <DepartmentCompatibilityMatrix />
+          </div>
+        )}
+
+        {/* ── TAB 3: CONSTRAINT MATRIX ── */}
         {activeTab === 'advanced' && (
           <div className="bg-white border border-[#D9E1EA] rounded-xl p-6 space-y-4 shadow-xs">
             <div>

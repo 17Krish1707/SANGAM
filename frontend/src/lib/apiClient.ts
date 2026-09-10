@@ -1250,3 +1250,75 @@ export function getPlanFreshness(runId?: string): Promise<PlanFreshnessResponse>
   return request<PlanFreshnessResponse>(`/api/plans/freshness${qs}`);
 }
 
+// ─────────────────────────────────────────────
+// Department Compatibility & Joint Graph
+// ─────────────────────────────────────────────
+
+export interface CompatibilityNode {
+  id: string;
+  label: string;
+  task_code: string;
+  department: string;
+  maintenance_type: string;
+  severity: string;
+  duration: number;
+  priority_score: number;
+  requires_power_isolation: boolean;
+  can_run_parallel: boolean;
+  due_date?: string;
+  section_id?: string;
+  section_name?: string;
+}
+
+export interface CompatibilityEdge {
+  source: string;
+  target: string;
+  type: string;
+  relationship: 'compatible' | 'conflict' | 'dependency';
+  notes?: string;
+  predecessor?: string;
+  successor?: string;
+  section_name?: string;
+}
+
+export interface JointCandidateCluster {
+  section_id: string;
+  section_name: string;
+  task_ids: string[];
+  tasks: Array<{
+    id: string;
+    code: string;
+    title: string;
+    dept: string;
+    duration: number;
+    power_cut: boolean;
+  }>;
+  departments: string[];
+  is_cross_department: boolean;
+  max_duration: number;
+}
+
+export interface DepartmentPolicy {
+  dept_pair: string;
+  name: string;
+  compatibility: string;
+  safety_protocol: string;
+  status: string;
+}
+
+export interface CompatibilityMatrixResponse {
+  nodes: CompatibilityNode[];
+  edges: CompatibilityEdge[];
+  joint_candidates: JointCandidateCluster[];
+  department_matrix: DepartmentPolicy[];
+  total_tasks: number;
+  total_relationships: number;
+  joint_candidate_clusters: number;
+}
+
+export function getCorridorCompatibilityMatrix(sectionId?: string): Promise<CompatibilityMatrixResponse> {
+  const q = sectionId ? `?section_id=${sectionId}` : '';
+  return request<CompatibilityMatrixResponse>(`/api/conflicts/compatibility-matrix${q}`);
+}
+
+
