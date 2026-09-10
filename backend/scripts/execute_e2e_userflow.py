@@ -69,40 +69,40 @@ def main():
         sys.exit(1)
 
     # 2. Create Corridor Sections (via Corridor Setup / Add Section endpoint)
-    # Station A -> Station B -> Station C -> Station D
+    # Dadar -> Matunga -> Sion -> Kurla
     section_configs = [
         {
-            "name": "Section A-B",
-            "corridor_name": "Central Trunk Route",
-            "from_station": "Station A",
-            "to_station": "Station B",
-            "length_km": 25.0,
+            "name": "Dadar–Matunga",
+            "corridor_name": "Mumbai Central Suburban Corridor",
+            "from_station": "Dadar",
+            "to_station": "Matunga",
+            "length_km": 1.8,
             "line_type": "double",
             "is_electrified": True,
             "traction_type": "25 kV AC OHE",
-            "section_capacity_notes": "Double Line 25kV AC OHE"
+            "section_capacity_notes": "High-Density Suburban Quadruple Track Corridor"
         },
         {
-            "name": "Section B-C",
-            "corridor_name": "Central Trunk Route",
-            "from_station": "Station B",
-            "to_station": "Station C",
-            "length_km": 25.0,
+            "name": "Matunga–Sion",
+            "corridor_name": "Mumbai Central Suburban Corridor",
+            "from_station": "Matunga",
+            "to_station": "Sion",
+            "length_km": 2.2,
             "line_type": "double",
             "is_electrified": True,
             "traction_type": "25 kV AC OHE",
-            "section_capacity_notes": "Double Line 25kV AC OHE"
+            "section_capacity_notes": "Suburban Fast & Slow Trunk Segment"
         },
         {
-            "name": "Section C-D",
-            "corridor_name": "Central Trunk Route",
-            "from_station": "Station C",
-            "to_station": "Station D",
-            "length_km": 25.0,
+            "name": "Sion–Kurla",
+            "corridor_name": "Mumbai Central Suburban Corridor",
+            "from_station": "Sion",
+            "to_station": "Kurla",
+            "length_km": 3.5,
             "line_type": "double",
             "is_electrified": True,
             "traction_type": "25 kV AC OHE",
-            "section_capacity_notes": "Double Line 25kV AC OHE"
+            "section_capacity_notes": "Major Junction Approach Segment"
         }
     ]
 
@@ -119,8 +119,8 @@ def main():
     sections_list = client.get("/api/sections").json()
     log_scratchpad(
         "2. Create Corridor Sections",
-        "POST /api/sections for Section A-B, B-C, C-D",
-        "Exactly 3 sections created: Section A-B, Section B-C, Section C-D (each 25km, Double Line, 25kV AC OHE)",
+        "POST /api/sections for Dadar–Matunga, Matunga–Sion, Sion–Kurla",
+        "Exactly 3 sections created: Dadar–Matunga, Matunga–Sion, Sion–Kurla",
         f"Verified 3 sections: {[s['name'] for s in sections_list]}",
         "PASS"
     )
@@ -130,42 +130,42 @@ def main():
         {
             "train_number": "P101",
             "train_type": "Passenger",
-            "section_id": section_map["Section A-B"],
+            "section_id": section_map["Dadar–Matunga"],
             "entry_time": "2026-09-09T00:30:00",
             "exit_time": "2026-09-09T01:00:00",
             "priority": 1,
             "source": "Manual Test Data",
-            "notes": "Passenger train Section A-B"
+            "notes": "Passenger train Dadar–Matunga"
         },
         {
             "train_number": "P102",
             "train_type": "Passenger",
-            "section_id": section_map["Section B-C"],
+            "section_id": section_map["Matunga–Sion"],
             "entry_time": "2026-09-09T04:00:00",
             "exit_time": "2026-09-09T04:30:00",
             "priority": 1,
             "source": "Manual Test Data",
-            "notes": "Passenger train Section B-C"
+            "notes": "Passenger train Matunga–Sion"
         },
         {
             "train_number": "G201",
             "train_type": "Goods",
-            "section_id": section_map["Section B-C"],
+            "section_id": section_map["Matunga–Sion"],
             "entry_time": "2026-09-09T08:00:00",
             "exit_time": "2026-09-09T08:40:00",
             "priority": 3,
             "source": "Manual Test Data",
-            "notes": "Goods train Section B-C"
+            "notes": "Goods train Matunga–Sion"
         },
         {
             "train_number": "P301",
             "train_type": "Passenger",
-            "section_id": section_map["Section C-D"],
+            "section_id": section_map["Sion–Kurla"],
             "entry_time": "2026-09-09T06:00:00",
             "exit_time": "2026-09-09T06:30:00",
             "priority": 1,
             "source": "Manual Test Data",
-            "notes": "Passenger train Section C-D"
+            "notes": "Passenger train Sion–Kurla"
         }
     ]
 
@@ -193,14 +193,14 @@ def main():
     if res.status_code == 200:
         windows_all = client.get("/api/corridor/windows/all").json()
         # Verify counts per section
-        ab_win = [w for w in windows_all if w["section_id"] == section_map["Section A-B"]]
-        bc_win = [w for w in windows_all if w["section_id"] == section_map["Section B-C"]]
-        cd_win = [w for w in windows_all if w["section_id"] == section_map["Section C-D"]]
+        ab_win = [w for w in windows_all if w["section_id"] == section_map["Dadar–Matunga"]]
+        bc_win = [w for w in windows_all if w["section_id"] == section_map["Matunga–Sion"]]
+        cd_win = [w for w in windows_all if w["section_id"] == section_map["Sion–Kurla"]]
         log_scratchpad(
             "4. Candidate Windows Extraction",
             "POST /api/corridor/recompute-windows",
-            "A-B >= 1 usable window, B-C >= 2 usable windows, C-D >= 1 usable window",
-            f"Total windows: {len(windows_all)} (A-B: {len(ab_win)}, B-C: {len(bc_win)}, C-D: {len(cd_win)})",
+            "Dadar–Matunga >= 1 usable window, Matunga–Sion >= 2 usable windows, Sion–Kurla >= 1 usable window",
+            f"Total windows: {len(windows_all)} (Dadar–Matunga: {len(ab_win)}, Matunga–Sion: {len(bc_win)}, Sion–Kurla: {len(cd_win)})",
             "PASS" if len(ab_win) >= 1 and len(bc_win) >= 2 and len(cd_win) >= 1 else "FAIL"
         )
     else:
@@ -245,14 +245,14 @@ def main():
 
     # 6. Create Maintenance Work across all 3 sections (6 tasks)
     task_configs = [
-        # TASK A1 (ENG on Section A-B)
+        # TASK A1 (ENG on Dadar–Matunga)
         {
             "code_ref": "A1",
             "department_code": "ENG",
-            "section_id": section_map["Section A-B"],
+            "section_id": section_map["Dadar–Matunga"],
             "asset_name": "Track KM 12/04",
             "maintenance_type": "Track Geometry Inspection",
-            "description": "Section A-B track geometry inspection using tamper",
+            "description": "Dadar–Matunga track geometry inspection using tamper",
             "severity": "Medium",
             "detected_at": "2026-09-08T08:00:00",
             "due_date": "2026-09-11T23:59:59",
@@ -265,14 +265,14 @@ def main():
             "status": "Pending",
             "source": "Manual",
         },
-        # TASK A2 (S&T on Section A-B)
+        # TASK A2 (S&T on Dadar–Matunga)
         {
             "code_ref": "A2",
             "department_code": "SNT",
-            "section_id": section_map["Section A-B"],
+            "section_id": section_map["Dadar–Matunga"],
             "asset_name": "Track Circuit TC-101",
             "maintenance_type": "Track Circuit Testing",
-            "description": "Section A-B track circuit diagnostic & testing",
+            "description": "Dadar–Matunga track circuit diagnostic & testing",
             "severity": "Medium",
             "detected_at": "2026-09-08T08:00:00",
             "due_date": "2026-09-11T23:59:59",
@@ -285,14 +285,14 @@ def main():
             "status": "Pending",
             "source": "Manual",
         },
-        # TASK B1 (ENG on Section B-C)
+        # TASK B1 (ENG on Matunga–Sion)
         {
             "code_ref": "B1",
             "department_code": "ENG",
-            "section_id": section_map["Section B-C"],
+            "section_id": section_map["Matunga–Sion"],
             "asset_name": "Rail Joint KM 34/12",
             "maintenance_type": "Rail Weld Repair",
-            "description": "Section B-C thermit weld repair on rail joint",
+            "description": "Matunga–Sion thermit weld repair on rail joint",
             "severity": "High",
             "detected_at": "2026-09-07T08:00:00",
             "due_date": "2026-09-10T23:59:59",
@@ -305,14 +305,14 @@ def main():
             "status": "Pending",
             "source": "Manual",
         },
-        # TASK B2 (TRD on Section B-C)
+        # TASK B2 (TRD on Matunga–Sion)
         {
             "code_ref": "B2",
             "department_code": "TRD",
-            "section_id": section_map["Section B-C"],
+            "section_id": section_map["Matunga–Sion"],
             "asset_name": "OHE Catenary KM 38/02",
             "maintenance_type": "OHE Inspection",
-            "description": "Section B-C catenary & contact wire inspection",
+            "description": "Matunga–Sion catenary & contact wire inspection",
             "severity": "High",
             "detected_at": "2026-09-07T08:00:00",
             "due_date": "2026-09-10T23:59:59",
@@ -326,14 +326,14 @@ def main():
             "status": "Pending",
             "source": "Manual",
         },
-        # TASK C1 (ENG on Section C-D)
+        # TASK C1 (ENG on Sion–Kurla)
         {
             "code_ref": "C1",
             "department_code": "ENG",
-            "section_id": section_map["Section C-D"],
+            "section_id": section_map["Sion–Kurla"],
             "asset_name": "Rail KM 56/18",
             "maintenance_type": "Rail Fracture Follow-up",
-            "description": "Section C-D emergency fracture follow-up & fishplate replacement",
+            "description": "Sion–Kurla emergency fracture follow-up & fishplate replacement",
             "severity": "Critical",
             "detected_at": "2026-09-09T06:00:00",
             "due_date": "2026-09-09T23:59:59",
@@ -345,14 +345,14 @@ def main():
             "status": "Pending",
             "source": "Manual",
         },
-        # TASK C2 (S&T on Section C-D)
+        # TASK C2 (S&T on Sion–Kurla)
         {
             "code_ref": "C2",
             "department_code": "SNT",
-            "section_id": section_map["Section C-D"],
+            "section_id": section_map["Sion–Kurla"],
             "asset_name": "Signal Post S-42",
             "maintenance_type": "Routine Signal Inspection",
-            "description": "Section C-D colour light signal post routine check",
+            "description": "Sion–Kurla colour light signal post routine check",
             "severity": "Low",
             "detected_at": "2026-09-08T08:00:00",
             "due_date": "2026-09-13T23:59:59",
@@ -398,7 +398,7 @@ def main():
     plan_payload = {
         "start_date": "2026-09-09T00:00:00",
         "end_date": "2026-09-13T23:59:59",
-        "section_ids": [section_map["Section A-B"], section_map["Section B-C"], section_map["Section C-D"]],
+        "section_ids": [section_map["Dadar–Matunga"], section_map["Matunga–Sion"], section_map["Sion–Kurla"]],
         "objective_profile": "balanced",
         "run_types": ["independent_baseline", "greedy_baseline", "sangam_optimized"]
     }
@@ -434,8 +434,8 @@ def main():
     )
 
     # 8. Approval Flow
-    # Approve Section A-B block (pairing A1 + A2)
-    ab_block = next(b for b in blocks if b["section_name"] == "Section A-B")
+    # Approve Dadar–Matunga block (pairing A1 + A2)
+    ab_block = next(b for b in blocks if b["section_name"] == "Dadar–Matunga")
     appr_payload = {
         "action": "APPROVE",
         "controller_name": "Operating Controller",
@@ -463,7 +463,7 @@ def main():
         p102_data = delay_res.json()
         # Check plan freshness
         freshness_res = client.get(f"/api/plans/freshness?run_id={sangam_run_id}").json()
-        bc_windows = client.get(f"/api/corridor/{section_map['Section B-C']}/windows").json()
+        bc_windows = client.get(f"/api/corridor/{section_map['Matunga–Sion']}/windows").json()
         has_overlap = freshness_res.get("has_conflicts")
         status_desc = f"Conflict detected: {freshness_res.get('conflicts')}" if has_overlap else "No maintenance block is affected. (Per Prompt Rule 18: Do not fabricate conflict)"
         log_scratchpad(

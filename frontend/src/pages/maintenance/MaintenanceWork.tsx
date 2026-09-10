@@ -250,7 +250,7 @@ export default function MaintenanceWork() {
         <PageGuideBanner
           pageTitle="Maintenance Work"
           purpose="Add maintenance requests from Engineering, TRD, and S&T here. SANGAM uses these tasks as the demand input for block planning. Make sure each task has section, duration, and resource requirements before generating a plan."
-          inputs={['Department (ENG, TRD, S&T)', 'Corridor Section (e.g. B-C)', 'Work Type & Severity', 'Estimated Duration & Minimum Contiguous Block', 'Power Isolation Need', 'Required Gang or Machine']}
+          inputs={['Department (ENG, TRD, S&T)', 'Corridor Section (e.g. Matunga–Sion)', 'Work Type & Severity', 'Estimated Duration & Minimum Contiguous Block', 'Power Isolation Need', 'Required Gang or Machine']}
           outputs={['Multi-criteria Priority Score (0–100)', 'Grouping & Joint Possession Eligibility', 'Corridor Work Demand Register']}
           nextStep={{ label: 'Check Resources or Proceed to Create Plan', to: '/planning/create' }}
         />
@@ -449,7 +449,7 @@ export default function MaintenanceWork() {
                         </span>
                       </td>
                       <td className="p-3 text-text-primary whitespace-nowrap">
-                        {t.section_name?.split(' ')[1] || 'B-C'}
+                        {t.section_name || 'Matunga–Sion'}
                       </td>
                       <td className="p-3 text-text-secondary truncate max-w-[120px]" title={t.asset_name || ''}>
                         {t.asset_name || 'Track Asset'}
@@ -1049,7 +1049,7 @@ export default function MaintenanceWork() {
               rows={6}
               value={importCsvText}
               onChange={(e) => setImportCsvText(e.target.value)}
-              placeholder="ENG,Section B-C,Deep Ballast Tamping,High,90,No&#10;TRD,Section B-C,Catenary Sag Adjustment,Medium,60,Yes&#10;SNT,Section B-C,Track Circuit Testing,Low,45,No"
+              placeholder="ENG,Matunga–Sion,Deep Ballast Tamping,High,90,No&#10;TRD,Matunga–Sion,Catenary Sag Adjustment,Medium,60,Yes&#10;SNT,Matunga–Sion,Track Circuit Testing,Low,45,No"
               className="w-full p-2 border border-border rounded font-mono text-xs bg-panel"
             />
 

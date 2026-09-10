@@ -29,7 +29,7 @@ import {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-const OPERATING_TODAY = '2026-09-07';
+const OPERATING_TODAY = new Date().toISOString().split('T')[0];
 
 function getMonday(iso: string) {
   const d = new Date(iso); const day = d.getDay();

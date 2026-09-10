@@ -70,18 +70,20 @@ export default function DataSources() {
               <span className="text-2xs font-bold text-slate-500 uppercase">Corridor Sections</span>
               <div className="mt-1 flex items-baseline justify-between">
                 <span className="text-xl font-bold font-mono text-[#172033]">
-                  {totals?.corridor_sections ?? 3}
+                  {totals?.corridor_sections ?? 0}
                 </span>
                 <span className="text-2xs text-slate-500">Sections</span>
               </div>
-              <span className="text-[10px] text-slate-500 font-mono">A-B, B-C, C-D (Double Line)</span>
+              <span className="text-[10px] text-slate-500 font-mono">
+                {totals?.corridor_sections ? 'Dadar–Matunga, Matunga–Sion...' : 'No sections configured'}
+              </span>
             </div>
 
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
               <span className="text-2xs font-bold text-slate-500 uppercase">Train Timetable Paths</span>
               <div className="mt-1 flex items-baseline justify-between">
                 <span className="text-xl font-bold font-mono text-purple-700">
-                  {totals?.train_movements_considered ?? 4}
+                  {totals?.train_movements_considered ?? 0}
                 </span>
                 <span className="text-2xs text-slate-500">Trains</span>
               </div>
@@ -241,7 +243,7 @@ export default function DataSources() {
             <div className="space-y-2 text-xs">
               <div className="flex justify-between font-mono py-1 border-b border-border">
                 <span className="text-text-secondary">Corridor Line:</span>
-                <span className="font-bold text-text-primary">Station A → B → C → D</span>
+                <span className="font-bold text-text-primary">Dadar → Matunga → Sion → Kurla → Ghatkopar → Vikhroli</span>
               </div>
               <div className="flex justify-between font-mono py-1 border-b border-border">
                 <span className="text-text-secondary">Track Structure:</span>

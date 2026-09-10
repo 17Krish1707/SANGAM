@@ -21,7 +21,7 @@ def seed_judge_demo():
         savings = compute_downtime_saved(db, ind_run_id, opt_run_id)
 
         print("\n=== DETERMINISTIC TESTCASE DATASET INITIALIZED ===")
-        print("Sections:               3 (A-B, B-C, C-D)")
+        print("Sections:               3 (Dadar–Matunga, Matunga–Sion, Sion–Kurla)")
         print("Trains:                 4 (P101, P102, G201, P301)")
         print("Resources:              10 (All available)")
         print("Tasks:                  6 across ENG, S&T, TRD")

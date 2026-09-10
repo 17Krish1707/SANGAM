@@ -272,7 +272,7 @@ export default function ReplanningOperations() {
                     <div className="flex justify-between text-[10px] font-mono text-[#667085] mt-1">
                       <span>+15m</span>
                       <span>+45m</span>
-                      <span>+90m (B-C Conflict)</span>
+                      <span>+90m (Matunga–Sion Conflict)</span>
                       <span>+180m</span>
                     </div>
                   </div>
@@ -633,7 +633,7 @@ export default function ReplanningOperations() {
                   </div>
                   <p className="text-[#667085] leading-relaxed">
                     {replanDiff.disruption_summary ||
-                      'Train delayed by 90 min on Section B-C. Re-plan successfully preserved 4 unaffected possessions and rescheduled the conflicting possession while keeping ENG, S&T, and TRD bundled together.'}
+                      'Train delayed by 90 min on Section Matunga–Sion. Re-plan successfully preserved 4 unaffected possessions and rescheduled the conflicting possession while keeping ENG, S&T, and TRD bundled together.'}
                   </p>
                 </div>
               </div>

@@ -45,7 +45,9 @@ def get_asset_availability(
     total_minutes = sum(int((b.block_end - b.block_start).total_seconds() // 60) for b in blocks)
     total_block_hours = round(total_minutes / 60.0, 2)
 
-    total_corridor_hours = 5 * 7 * 24.0  # 5 sections * 168 hours = 840 hours
+    from backend.models.section import RailwaySection
+    section_count = db.query(RailwaySection).count() or 1
+    total_corridor_hours = section_count * 7 * 24.0  # sections × 168 hours/week
     availability_pct = max(0.0, min(100.0, round((1.0 - (total_block_hours / total_corridor_hours)) * 100.0, 1)))
 
     return {

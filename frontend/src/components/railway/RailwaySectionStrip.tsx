@@ -18,14 +18,19 @@ export default function RailwaySectionStrip({
     onSectionClick?.(id);
   };
 
-  // If sections not yet loaded, show 5 default Station nodes
-  const displaySections = sections.length > 0 ? sections : [
-    { id: 'sec-1', name: 'Section A-B', from_station: 'Station A', to_station: 'Station B' },
-    { id: 'sec-2', name: 'Section B-C', from_station: 'Station B', to_station: 'Station C' },
-    { id: 'sec-3', name: 'Section C-D', from_station: 'Station C', to_station: 'Station D' },
-    { id: 'sec-4', name: 'Section D-E', from_station: 'Station D', to_station: 'Station E' },
-    { id: 'sec-5', name: 'Section E-F', from_station: 'Station E', to_station: 'Station F' },
-  ];
+  if (sections.length === 0) {
+    return (
+      <div className={`bg-white border-b border-border px-6 py-2.5 flex items-center justify-between text-xs text-text-secondary ${className}`}>
+        <span className="italic">No corridor sections configured in active database</span>
+        <div className="flex items-center gap-2 text-2xs font-mono text-text-secondary">
+          <span className="w-2 h-2 rounded-full bg-slate-300" />
+          <span>Corridor: No Active Sections</span>
+        </div>
+      </div>
+    );
+  }
+
+  const displaySections = sections;
 
   return (
     <div className={`bg-white border-b border-border px-6 py-2 flex items-center justify-between overflow-x-auto select-none ${className}`}>

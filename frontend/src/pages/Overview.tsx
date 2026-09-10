@@ -96,7 +96,7 @@ export default function Overview() {
   const overdueTasks = pendingTasks.filter((t) => {
     if (!t.due_date) return false;
     const d = new Date(t.due_date);
-    return d < new Date() || d < new Date('2026-09-09T00:00:00');
+    return d < new Date();
   });
 
   const unavailableResources = resources.filter((r) => !r.is_available);
@@ -106,7 +106,7 @@ export default function Overview() {
   // Next block info
   const nextBlock = blocks[0];
   const nextBlockTimeStr = nextBlock
-    ? `${new Date(nextBlock.block_start).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} · ${nextBlock.section_name?.split(' ')[1] || 'B-C'} · ${new Date(nextBlock.block_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}–${new Date(nextBlock.block_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    ? `${new Date(nextBlock.block_start).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} · ${nextBlock.section_name || 'Matunga–Sion'} · ${new Date(nextBlock.block_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}–${new Date(nextBlock.block_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
     : 'No blocks scheduled yet';
 
   const planStatus = blocks.length === 0
@@ -221,7 +221,7 @@ export default function Overview() {
                     Corridor & Train Timetable
                   </div>
                   <div className="text-xs text-[#667085] mt-1 leading-relaxed">
-                    Add stations, sections (e.g. A-B, B-C), and passenger/freight train runs to calculate candidate corridor gaps.
+                    Add stations, sections (e.g. Dadar–Matunga, Matunga–Sion), and passenger/freight train runs to calculate candidate corridor gaps.
                   </div>
                 </div>
 
@@ -716,7 +716,7 @@ export default function Overview() {
             <div className="p-8 text-center bg-[#F8FAFC] rounded-lg border border-dashed border-[#D9E1EA]">
               <div className="text-xs font-semibold text-[#172033]">No railway corridor sections configured yet</div>
               <div className="text-xs text-[#667085] mt-1">
-                Configure your corridor and sections (e.g. Test Corridor with Stations A, B, C) in Train & Corridor Data.
+                Configure your corridor and sections (e.g. Mumbai Suburban Corridor with stations Dadar, Matunga, Sion) in Train & Corridor Data.
               </div>
               <button
                 onClick={() => navigate('/corridor-data')}

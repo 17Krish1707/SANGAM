@@ -17,7 +17,7 @@ import {
   Activity,
 } from 'lucide-react';
 
-const DEFAULT_CORRIDOR_DATE = '2026-09-07';
+const DEFAULT_CORRIDOR_DATE = new Date().toISOString().split('T')[0];
 
 function fmtTime(iso: string) {
   if (!iso) return '—';

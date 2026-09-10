@@ -31,13 +31,18 @@ export default function CorridorDiagram({
     onSelectSection?.(secId);
   };
 
-  const defaultSections = sections.length > 0 ? sections : [
-    { id: 'sec-1', name: 'Section A-B', from_station: 'Station A', to_station: 'Station B' },
-    { id: 'sec-2', name: 'Section B-C', from_station: 'Station B', to_station: 'Station C' },
-    { id: 'sec-3', name: 'Section C-D', from_station: 'Station C', to_station: 'Station D' },
-    { id: 'sec-4', name: 'Section D-E', from_station: 'Station D', to_station: 'Station E' },
-    { id: 'sec-5', name: 'Section E-F', from_station: 'Station E', to_station: 'Station F' },
-  ];
+  if (sections.length === 0) {
+    return (
+      <div className={`bg-white border border-border rounded-card p-6 shadow-xs text-center ${className}`}>
+        <div className="text-xs font-semibold text-text-primary">No Corridor Sections Defined</div>
+        <p className="text-2xs text-text-secondary mt-1 max-w-md mx-auto">
+          No railway sections found in the active database. Add corridor sections in Train &amp; Corridor Data.
+        </p>
+      </div>
+    );
+  }
+
+  const defaultSections = sections;
 
   return (
     <div className={`bg-white border border-border rounded-card p-4 shadow-xs ${className}`}>

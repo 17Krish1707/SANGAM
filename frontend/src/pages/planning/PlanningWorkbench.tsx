@@ -23,7 +23,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
-const DEFAULT_PLANNING_DATE = '2026-09-07';
+const DEFAULT_PLANNING_DATE = new Date().toISOString().split('T')[0];
 
 export default function PlanningWorkbench() {
   const {

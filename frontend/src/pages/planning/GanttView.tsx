@@ -24,7 +24,7 @@ function getMonday(iso: string) {
   d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day)); return d.toISOString().split('T')[0];
 }
 
-const OPERATING_TODAY = '2026-09-07';
+const OPERATING_TODAY = new Date().toISOString().split('T')[0];
 const WEEK_START = getMonday(OPERATING_TODAY);
 
 const DEPARTMENTS = [

@@ -109,7 +109,7 @@ export default function TaskIntelligenceDrawer({
               <span className="text-2xs font-mono uppercase font-bold text-text-secondary block mb-1.5">
                 TRACK CORRIDOR LOCATION
               </span>
-              <MiniCorridorStatus sectionName={task?.section_name ?? 'Section B-C'} className="w-full justify-between px-4 py-2 bg-slate-50" />
+              <MiniCorridorStatus sectionName={task?.section_name ?? 'Matunga–Sion'} className="w-full justify-between px-4 py-2 bg-slate-50" />
               <div className="flex justify-between text-2xs text-text-secondary mt-1 px-1">
                 <span>From: {task?.from_station}</span>
                 <span>To: {task?.to_station}</span>

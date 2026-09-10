@@ -68,7 +68,7 @@ def init_db(drop_first: bool = False):
             if "operational_notes" not in cols:
                 conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN operational_notes VARCHAR(500)"))
             if "source" not in cols:
-                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN source VARCHAR(50) DEFAULT 'Synthetic Demo'"))
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN source VARCHAR(50) DEFAULT 'Manual'"))
             if "deferred_reason" not in cols:
                 conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN deferred_reason VARCHAR(255)"))
             if "deferred_until" not in cols:
@@ -90,7 +90,7 @@ def init_db(drop_first: bool = False):
             if "delay_minutes" not in cols:
                 conn.execute(text("ALTER TABLE train_movements ADD COLUMN delay_minutes INTEGER DEFAULT 0"))
             if "source" not in cols:
-                conn.execute(text("ALTER TABLE train_movements ADD COLUMN source VARCHAR(50) DEFAULT 'Synthetic Demo'"))
+                conn.execute(text("ALTER TABLE train_movements ADD COLUMN source VARCHAR(50) DEFAULT 'Manual'"))
             if "notes" not in cols:
                 conn.execute(text("ALTER TABLE train_movements ADD COLUMN notes VARCHAR(255)"))
 

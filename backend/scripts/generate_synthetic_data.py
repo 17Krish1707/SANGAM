@@ -82,14 +82,14 @@ def generate_synthetic_data(seed: int = 26027, recreate_tables: bool = True):
             seed_departments()
             depts = {d.code: d for d in db.query(Department).all()}
 
-        # 2. Corridor: Station A -> Station F (5 sections)
+        # 2. Corridor: Dadar -> Matunga -> Sion -> Kurla -> Ghatkopar -> Vikhroli (5 sections)
         print("Generating 5 railway sections...")
         sections_data = [
-            ("Station A", "Station B", "Section A-B", "double", "Trunk corridor entry; double line with 130 kmph capability"),
-            ("Station B", "Station C", "Section B-C", "double", "Intermediate section with goods loop line"),
-            ("Station C", "Station D", "Section C-D", "double", "Major river bridge approach; permanent speed restriction zone"),
-            ("Station D", "Station E", "Section D-E", "double", "Curved gradient terrain; heavy mineral freight transit"),
-            ("Station E", "Station F", "Section E-F", "double", "Junction approach section with multi-line convergence"),
+            ("Dadar", "Matunga", "Dadar–Matunga", "double", "High-Density Suburban Quadruple Track Corridor"),
+            ("Matunga", "Sion", "Matunga–Sion", "double", "Suburban Fast & Slow Trunk Segment"),
+            ("Sion", "Kurla", "Sion–Kurla", "double", "Major Junction Approach Segment"),
+            ("Kurla", "Ghatkopar", "Kurla–Ghatkopar", "double", "Heavy Commuter Density Bottleneck Segment"),
+            ("Ghatkopar", "Vikhroli", "Ghatkopar–Vikhroli", "double", "Suburban Multi-Line Convergence Zone"),
         ]
 
         sections = []

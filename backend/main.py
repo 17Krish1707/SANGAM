@@ -10,18 +10,14 @@ from backend.database import init_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Always initialize schema
     init_db()
-    if os.environ.get("SANGAM_DATA_MODE") == "demo":
-        from backend.database import SessionLocal
-        from backend.models.task import MaintenanceTask
-        db = SessionLocal()
-        try:
-            if db.query(MaintenanceTask).count() == 0:
-                from backend.scripts.seed_judge_demo import seed_judge_demo
-                print("SANGAM_DATA_MODE=demo detected and database is empty. Auto-seeding judge demo...")
-                seed_judge_demo()
-        finally:
-            db.close()
+    # Seed master reference data (departments only) — never operational data
+    try:
+        from backend.scripts.seed_departments import seed_departments
+        seed_departments()
+    except Exception as e:
+        print(f"Department seed notice: {e}")
     yield
 
 # Auto-migrate / ensure tables and columns on module load

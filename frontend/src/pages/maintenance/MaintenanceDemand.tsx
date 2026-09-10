@@ -17,7 +17,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 
-const TODAY_ISO = '2026-09-07T00:00:00';
+const TODAY_ISO = new Date().toISOString().replace('Z', '');
 
 interface MaintenanceDemandProps {
   defaultFilter?: 'all' | 'critical' | 'overdue';

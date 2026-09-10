@@ -39,22 +39,22 @@ export default function TrainCorridorData() {
 
   // Corridor / Section Modals
   const [corridorModalOpen, setCorridorModalOpen] = useState(false);
-  const [corridorNameInput, setCorridorNameInput] = useState('Test Corridor');
-  const [corridorStationsInput, setCorridorStationsInput] = useState('A, B, C');
+  const [corridorNameInput, setCorridorNameInput] = useState('Mumbai Suburban Corridor');
+  const [corridorStationsInput, setCorridorStationsInput] = useState('Dadar, Matunga, Sion, Kurla, Ghatkopar, Vikhroli');
   const [corridorLineType, setCorridorLineType] = useState('double');
   const [corridorElectrified, setCorridorElectrified] = useState(true);
 
   const [sectionModalOpen, setSectionModalOpen] = useState(false);
   const [sectionFormData, setSectionFormData] = useState({
-    name: 'A-B',
-    corridor_name: 'Test Corridor',
-    from_station: 'A',
-    to_station: 'B',
-    length_km: 25,
+    name: 'Dadar–Matunga',
+    corridor_name: 'Mumbai Suburban Corridor',
+    from_station: 'Dadar',
+    to_station: 'Matunga',
+    length_km: 2.5,
     line_type: 'double' as 'single' | 'double',
     is_electrified: true,
     traction_type: '25 kV AC OHE',
-    section_capacity_notes: 'Trunk double line equipped with absolute block signalling',
+    section_capacity_notes: 'Suburban double line equipped with continuous track circuits',
   });
 
   // Train Modals
@@ -107,7 +107,7 @@ export default function TrainCorridorData() {
       .filter(Boolean);
 
     if (stations.length < 2) {
-      alert('Please specify at least 2 stations separated by commas (e.g. A, B, C)');
+      alert('Please specify at least 2 stations separated by commas (e.g. Dadar, Matunga, Sion)');
       return;
     }
 
@@ -291,7 +291,7 @@ export default function TrainCorridorData() {
                 <button
                   onClick={() => setCorridorModalOpen(true)}
                   className="px-3.5 py-2 rounded-md bg-[#173F7A] text-white text-xs font-bold hover:bg-[#1E4E8C] transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  title="Configure corridor stations (e.g. Test Corridor with Stations A, B, C)"
+                  title="Configure corridor stations (e.g. Mumbai Suburban Corridor with stations Dadar, Matunga, Sion)"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Setup Corridor</span>
@@ -405,14 +405,14 @@ export default function TrainCorridorData() {
                 </div>
                 <h3 className="text-base font-bold text-[#172033]">No corridor sections defined</h3>
                 <p className="text-xs text-[#667085] max-w-md mx-auto mt-1 leading-relaxed">
-                  Start by clicking <strong>Setup Corridor</strong> to create your test route (e.g. Corridor: <em>Test Corridor</em>, Stations: <em>A, B, C</em>) which generates sections A-B and B-C.
+                  Start by clicking <strong>Setup Corridor</strong> to create your corridor route (e.g. Corridor: <em>Mumbai Suburban Corridor</em>, Stations: <em>Dadar, Matunga, Sion, Kurla, Ghatkopar, Vikhroli</em>) which generates sections Dadar–Matunga, Matunga–Sion, etc.
                 </p>
                 <button
                   onClick={() => setCorridorModalOpen(true)}
                   className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#173F7A] text-white text-xs font-bold hover:bg-[#1E4E8C] transition-colors shadow-xs"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Setup Test Corridor (Stations A, B, C)</span>
+                  <span>Setup Corridor (Dadar → Matunga → Sion → Kurla → Ghatkopar → Vikhroli)</span>
                 </button>
               </div>
             )}
@@ -506,8 +506,8 @@ export default function TrainCorridorData() {
                 </div>
                 <h3 className="text-base font-bold text-[#172033]">No train movements scheduled</h3>
                 <p className="text-xs text-[#667085] max-w-md mx-auto mt-1 leading-relaxed">
-                  Add trains on your sections (e.g. Passenger P101 00:00–00:30, P102 04:00–04:30 on Section B-C).
-                  SANGAM will automatically detect the gap between P101 and P102 as a candidate block window.
+                  Add trains on your sections (e.g. Passenger P101 00:00–00:30 on Section Matunga–Sion).
+                  SANGAM will automatically detect gaps between trains as candidate block windows.
                 </p>
                 <button
                   onClick={handleOpenAddTrain}
@@ -642,10 +642,10 @@ export default function TrainCorridorData() {
                   required
                   value={corridorStationsInput}
                   onChange={(e) => setCorridorStationsInput(e.target.value)}
-                  placeholder="e.g. A, B, C"
+                  placeholder="e.g. Dadar, Matunga, Sion, Kurla, Ghatkopar, Vikhroli"
                   className="w-full bg-[#F8FAFC] border border-[#D9E1EA] rounded p-2 text-[#172033] focus:outline-none focus:border-[#173F7A] font-mono"
                 />
-                <span className="text-[11px] text-[#667085] mt-0.5 block">Example: <code>A, B, C</code> will automatically create sections A-B and B-C.</span>
+                <span className="text-[11px] text-[#667085] mt-0.5 block">Example: <code>Dadar, Matunga, Sion</code> will automatically create sections Dadar–Matunga and Matunga–Sion.</span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

@@ -61,8 +61,8 @@ interface PlanningContextType {
 
 const PlanningContext = createContext<PlanningContextType | undefined>(undefined);
 
-export const DEFAULT_OPERATING_DATE = '2026-09-07';
-export const DEFAULT_CORRIDOR_NAME = 'Station A → Station F (Trunk Route)';
+export const DEFAULT_OPERATING_DATE = new Date().toISOString().split('T')[0];
+export const DEFAULT_CORRIDOR_NAME = 'Mumbai Suburban Corridor';
 
 export function PlanningProvider({ children }: { children: React.ReactNode }) {
   const [userRole, setUserRole] = useState<'Planner' | 'Controller'>('Controller');

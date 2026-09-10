@@ -10,7 +10,7 @@ import FilterBar, { type FilterState } from './FilterBar';
 import PrioritySlideOver from './PrioritySlideOver';
 import { getTasks, type MaintenanceTask, type TaskFilters } from '../../lib/apiClient';
 
-const TODAY_ISO = '2026-09-07T00:00:00';
+const TODAY_ISO = new Date().toISOString().replace('Z', '');
 
 function severityVariant(s: string): BadgeVariant {
   if (s === 'Critical') return 'critical';

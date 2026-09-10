@@ -36,7 +36,7 @@ export default function BeforeAfterPossession({
             Before SANGAM vs. With SANGAM
           </h2>
           <p className="text-xs text-[#667085] mt-1">
-            Section B–C Joint Coordinated Possession: See how 3 siloed department blocks collapse into 1 shared window.
+            Matunga–Sion Joint Coordinated Possession: See how 3 siloed department blocks collapse into 1 shared window.
           </p>
         </div>
 
@@ -69,15 +69,15 @@ export default function BeforeAfterPossession({
         {/* Stations Header */}
         <div className="flex items-center justify-between mb-4 px-1">
           <div className="flex items-center gap-2">
-            <StationNode code="B" name="Station B" size="sm" isActive />
-            <span className="text-xs font-bold text-[#172033]">Junction B</span>
+            <StationNode code="MTN" name="Matunga" size="sm" isActive />
+            <span className="text-xs font-bold text-[#172033]">Matunga</span>
           </div>
           <div className="text-xs font-mono font-bold text-[#667085] uppercase tracking-wide">
-            Section B–C (28 KM Double Line)
+            Section Matunga–Sion (Double Line)
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-[#172033]">Terminal C</span>
-            <StationNode code="C" name="Station C" size="sm" isActive />
+            <span className="text-xs font-bold text-[#172033]">Sion</span>
+            <StationNode code="SIN" name="Sion" size="sm" isActive />
           </div>
         </div>
 
@@ -160,7 +160,7 @@ export default function BeforeAfterPossession({
                     <span className="px-1.5 py-0.5 rounded bg-amber-600 text-white text-[10px] font-bold">TRD</span>
                   </div>
                   <span className="text-xs font-bold text-[#173F7A] uppercase tracking-wider">
-                    Shared Maintenance Block (B–C-03)
+                    Shared Maintenance Block (MS-01)
                   </span>
                 </div>
                 <span className="text-xs font-mono font-bold bg-indigo-50 text-indigo-800 px-2.5 py-1 rounded border border-indigo-200">

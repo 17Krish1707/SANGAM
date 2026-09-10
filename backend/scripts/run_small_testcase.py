@@ -52,39 +52,39 @@ def seed_and_init_small_testcase(db):
     trd_dept = db.query(Department).filter(Department.code == "TRD").first()
     snt_dept = db.query(Department).filter(Department.code == "SNT").first()
 
-    # 1. 3 Corridor Sections: A-B, B-C, C-D (each 25 km, Double Line, 25 kV AC OHE)
+    # 1. 3 Corridor Sections: Dadar–Matunga, Matunga–Sion, Sion–Kurla
     sec_ab = RailwaySection(
-        name="Section A-B",
-        corridor_name="Main Trunk Corridor",
-        from_station="Station A",
-        to_station="Station B",
-        length_km=25.0,
+        name="Dadar–Matunga",
+        corridor_name="Mumbai Central Suburban Corridor",
+        from_station="Dadar",
+        to_station="Matunga",
+        length_km=1.8,
         line_type="double",
         is_electrified=True,
         traction_type="25 kV AC OHE",
-        section_capacity_notes="Double Line, Feeder Trunk Segment",
+        section_capacity_notes="High-Density Suburban Quadruple Track Corridor",
     )
     sec_bc = RailwaySection(
-        name="Section B-C",
-        corridor_name="Main Trunk Corridor",
-        from_station="Station B",
-        to_station="Station C",
-        length_km=25.0,
+        name="Matunga–Sion",
+        corridor_name="Mumbai Central Suburban Corridor",
+        from_station="Matunga",
+        to_station="Sion",
+        length_km=2.2,
         line_type="double",
         is_electrified=True,
         traction_type="25 kV AC OHE",
-        section_capacity_notes="High-Density Double Line, Core Junction",
+        section_capacity_notes="Suburban Fast & Slow Trunk Segment",
     )
     sec_cd = RailwaySection(
-        name="Section C-D",
-        corridor_name="Main Trunk Corridor",
-        from_station="Station C",
-        to_station="Station D",
-        length_km=25.0,
+        name="Sion–Kurla",
+        corridor_name="Mumbai Central Suburban Corridor",
+        from_station="Sion",
+        to_station="Kurla",
+        length_km=3.5,
         line_type="double",
         is_electrified=True,
         traction_type="25 kV AC OHE",
-        section_capacity_notes="Double Line, Absolute Block Division",
+        section_capacity_notes="Major Junction Approach Segment",
     )
     db.add_all([sec_ab, sec_bc, sec_cd])
     db.flush()
@@ -125,7 +125,7 @@ def seed_and_init_small_testcase(db):
         priority=1,
         forecast_confidence=1.0,
         source="Manual Test Data",
-        notes="Passenger Service on Section A-B",
+        notes="Passenger Service on Section Dadar–Matunga",
     )
     train_p102 = TrainMovement(
         section_id=sec_bc.id,
@@ -139,7 +139,7 @@ def seed_and_init_small_testcase(db):
         priority=1,
         forecast_confidence=1.0,
         source="Manual Test Data",
-        notes="Morning Passenger Service on Section B-C",
+        notes="Morning Passenger Service on Section Matunga–Sion",
     )
     train_g201 = TrainMovement(
         section_id=sec_bc.id,
@@ -153,7 +153,7 @@ def seed_and_init_small_testcase(db):
         priority=2,
         forecast_confidence=0.85,
         source="Manual Test Data",
-        notes="Goods Train on Section B-C",
+        notes="Goods Train on Section Matunga–Sion",
     )
     train_p301 = TrainMovement(
         section_id=sec_cd.id,
@@ -167,7 +167,7 @@ def seed_and_init_small_testcase(db):
         priority=1,
         forecast_confidence=1.0,
         source="Manual Test Data",
-        notes="Morning Passenger on Section C-D",
+        notes="Morning Passenger on Section Sion–Kurla",
     )
     db.add_all([train_p101, train_p102, train_g201, train_p301])
     db.flush()
@@ -182,7 +182,7 @@ def seed_and_init_small_testcase(db):
     )
 
     # 5. Exactly 6 Maintenance Tasks
-    # Section A-B: TASK A1 and TASK A2 (Joint opportunity)
+    # Section Dadar–Matunga: TASK A1 and TASK A2 (Joint opportunity)
     task_a1 = MaintenanceTask(
         task_code="TASK-A1",
         department_id=eng_dept.id,
@@ -218,7 +218,7 @@ def seed_and_init_small_testcase(db):
         operational_notes="Candidate for joint block with P-Way geometry check.",
     )
 
-    # Section B-C: TASK B1 and TASK B2
+    # Section Matunga–Sion: TASK B1 and TASK B2
     task_b1 = MaintenanceTask(
         task_code="TASK-B1",
         department_id=eng_dept.id,
@@ -254,7 +254,7 @@ def seed_and_init_small_testcase(db):
         operational_notes="Requires traction power isolation.",
     )
 
-    # Section C-D: TASK C1 and TASK C2
+    # Section Sion–Kurla: TASK C1 and TASK C2
     task_c1 = MaintenanceTask(
         task_code="TASK-C1",
         department_id=eng_dept.id,
@@ -398,12 +398,12 @@ def main():
         for sec in data["sections"]:
             sec_wins = db.query(BlockWindow).filter(BlockWindow.section_id == sec.id).all()
             print(f"  Section {sec.name}: {len(sec_wins)} candidate window(s)")
-            if "A-B" in sec.name:
-                assert len(sec_wins) >= 1, "Section A-B must have at least 1 window"
-            elif "B-C" in sec.name:
-                assert len(sec_wins) >= 2, "Section B-C must have at least 2 windows"
-            elif "C-D" in sec.name:
-                assert len(sec_wins) >= 1, "Section C-D must have at least 1 window"
+            if "Dadar" in sec.name:
+                assert len(sec_wins) >= 1, "Section Dadar–Matunga must have at least 1 window"
+            elif "Matunga" in sec.name:
+                assert len(sec_wins) >= 2, "Section Matunga–Sion must have at least 2 windows"
+            elif "Sion" in sec.name:
+                assert len(sec_wins) >= 1, "Section Sion–Kurla must have at least 1 window"
 
         # STEP 3: Verify Task Priorities (C1 Critical vs C2 Low)
         print("\n[Step 3] Verifying Task Planning Priorities:")
@@ -462,15 +462,15 @@ def main():
 
         print(f"  P102 updated: Scheduled {orig_entry.strftime('%H:%M')}–{orig_exit.strftime('%H:%M')} -> Updated {tm_p102.entry_time.strftime('%H:%M')}–{tm_p102.exit_time.strftime('%H:%M')} (+90 min)")
 
-        # Re-populate windows on B-C
-        sec_bc = db.query(RailwaySection).filter(RailwaySection.name == "Section B-C").first()
+        # Re-populate windows on Matunga–Sion
+        sec_bc = db.query(RailwaySection).filter(RailwaySection.name == "Matunga–Sion").first()
         recomputed_bc_windows = populate_block_windows(
             db=db,
             section_ids=[str(sec_bc.id)],
             start_date=datetime(2026, 9, 9, 0, 0, 0),
             end_date=datetime(2026, 9, 9, 23, 59, 59),
         )
-        print(f"  Recomputed Section B-C candidate windows: {len(recomputed_bc_windows)} window(s)")
+        print(f"  Recomputed Section Matunga–Sion candidate windows: {len(recomputed_bc_windows)} window(s)")
 
         # Test plan freshness / conflict detection
         from backend.routers.plans import get_plan_freshness
@@ -562,7 +562,7 @@ def main():
         print("SANGAM SMALL TESTCASE RESULT")
         print("=" * 70)
         print(f"Dataset:")
-        print(f"  Sections:           3 (Section A-B, Section B-C, Section C-D)")
+        print(f"  Sections:           3 (Dadar–Matunga, Matunga–Sion, Sion–Kurla)")
         print(f"  Trains:             4 (P101, P102, G201, P301 on 09 Sep 2026)")
         print(f"  Resources:          10 (4 ENG, 3 SNT, 3 TRD)")
         print(f"  Maintenance Jobs:   6 (A1, A2, B1, B2, C1, C2)")
@@ -578,7 +578,7 @@ def main():
 
         print(f"\nDynamic Test 1 (P102 +90 min delay):")
         print(f"  What changed:       Train P102 shifted from 04:00–04:30 to 05:30–06:00.")
-        print(f"                      Corridor availability engine immediately shrank Section B-C window from 190 min to 100 min.")
+        print(f"                      Corridor availability engine immediately shrank Section Matunga–Sion window from 190 min to 100 min.")
         print(f"                      Conflict engine flagged overlap with scheduled block.")
         print(f"                      Scoped re-plan moved affected block with 0 cascading cancellations.")
 

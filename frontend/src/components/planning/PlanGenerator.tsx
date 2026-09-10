@@ -42,7 +42,7 @@ function addDays(iso: string, n: number): string {
   return d.toISOString().split('T')[0];
 }
 
-const OPERATING_TODAY = '2026-09-07';
+const OPERATING_TODAY = new Date().toISOString().split('T')[0];
 
 export default function PlanGenerator({ onComplete, defaultOpen = false }: PlanGeneratorProps) {
   const [open, setOpen]         = useState(defaultOpen);

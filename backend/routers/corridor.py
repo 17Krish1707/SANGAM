@@ -93,7 +93,7 @@ def get_corridor_windows(
         raise HTTPException(status_code=404, detail="Railway section not found")
 
     if start_date is None:
-        start_date = datetime(2026, 9, 7, 0, 0, 0)
+        start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     if end_date is None:
         end_date = start_date + timedelta(days=7)
 
@@ -148,7 +148,7 @@ def get_section_trains(
         raise HTTPException(status_code=404, detail="Railway section not found")
 
     if start_date is None:
-        start_date = datetime(2026, 9, 7, 0, 0, 0)
+        start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     if end_date is None:
         end_date = start_date + timedelta(days=1)
 
@@ -184,7 +184,7 @@ def get_section_trains(
 @router.get("/{section_id}/occupancy")
 def get_section_24h_occupancy(
     section_id: str,
-    target_date: Optional[str] = Query("2026-09-07", description="Date in YYYY-MM-DD format"),
+    target_date: Optional[str] = Query(None, description="Date in YYYY-MM-DD format (defaults to today)"),
     db: Session = Depends(get_db),
 ):
     """
@@ -200,9 +200,9 @@ def get_section_24h_occupancy(
         raise HTTPException(status_code=404, detail="Railway section not found")
 
     try:
-        base_d = datetime.strptime(target_date, "%Y-%m-%d")
+        base_d = datetime.strptime(target_date, "%Y-%m-%d") if target_date else datetime.utcnow()
     except ValueError:
-        base_d = datetime(2026, 9, 7)
+        base_d = datetime.utcnow()
 
     day_start = datetime(base_d.year, base_d.month, base_d.day, 0, 0, 0)
     day_end = day_start + timedelta(days=1)

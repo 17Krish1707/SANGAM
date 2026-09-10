@@ -87,7 +87,7 @@ def generate_plans(
     else:
         sec_ids = req.section_ids
 
-    start_dt = req.start_date or datetime(2026, 9, 7, 0, 0, 0)
+    start_dt = req.start_date or datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     end_dt = req.end_date or (start_dt + (timedelta(days=7) if req.horizon == "weekly" else timedelta(days=28)))
 
     bundle = prepare_optimization_input(
@@ -913,7 +913,7 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
     all_tasks = db.query(MaintenanceTask).all()
     pending = [t for t in all_tasks if t.status in ("Pending", "Ready for Planning", "New")]
     critical = [t for t in pending if t.severity in ("Critical", "High")]
-    ref_dt = datetime(2026, 9, 7, 8, 0, 0)
+    ref_dt = datetime.utcnow()
     overdue = [
         t for t in pending
         if t.due_date and (t.due_date.replace(tzinfo=None) if t.due_date.tzinfo is not None else t.due_date) < ref_dt
@@ -943,8 +943,15 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
         except Exception:
             pass
 
+    # Compute dynamic planning horizon label from current week
+    import datetime as _dt_module
+    _today = datetime.utcnow().date()
+    _week_start = _today - _dt_module.timedelta(days=_today.weekday())
+    _week_end = _week_start + _dt_module.timedelta(days=6)
+    _horizon_label = f"{_week_start.strftime('%d %b')}–{_week_end.strftime('%d %b %Y')}"
+
     return {
-        "planning_horizon": "07–13 September 2026",
+        "planning_horizon": _horizon_label,
         "division": "Central Division - Trunk Route",
         "latest_runs": {
             "sangam_optimized": str(opt_run.id) if opt_run else None,
@@ -990,9 +997,9 @@ def get_data_sources_summary(db: Session = Depends(get_db)):
 
     return {
         "status": "operational",
-        "prototype_seed": 26027,
-        "is_synthetic_prototype": True,
-        "disclosure": "Maintenance demand and train movements are structured from the active SIH demonstration dataset. Core OR-Tools CP-SAT joint optimization is 100% computed, not simulated.",
+        "prototype_seed": None,
+        "is_synthetic_prototype": False,
+        "disclosure": "Data entered directly into SANGAM by authorized railway staff. Core OR-Tools CP-SAT joint optimization is 100% computed, not simulated.",
         "pipelines": [
             {
                 "name": "TMS Adapter",

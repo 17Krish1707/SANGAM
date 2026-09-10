@@ -67,7 +67,7 @@ def list_tasks(
         query = query.filter(MaintenanceTask.priority_score >= min_priority)
 
     if overdue_only:
-        ref_dt = datetime(2026, 9, 9, 23, 59, 59)
+        ref_dt = datetime.utcnow()
         query = query.filter(MaintenanceTask.due_date <= ref_dt)
 
     tasks = query.order_by(MaintenanceTask.priority_score.desc().nullslast()).all()

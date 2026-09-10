@@ -692,7 +692,7 @@ export interface SectionOccupancyData {
   }[];
 }
 
-export function getSectionOccupancy(sectionId: string, targetDate = '2026-09-07'): Promise<SectionOccupancyData> {
+export function getSectionOccupancy(sectionId: string, targetDate = new Date().toISOString().split('T')[0]): Promise<SectionOccupancyData> {
   return request<SectionOccupancyData>(`/api/corridor/${sectionId}/occupancy?target_date=${targetDate}`);
 }
 

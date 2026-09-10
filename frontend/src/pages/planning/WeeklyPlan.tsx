@@ -29,7 +29,7 @@ function getMonday(iso: string): string {
   return d.toISOString().split('T')[0];
 }
 
-const OPERATING_TODAY = '2026-09-07';
+const OPERATING_TODAY = new Date().toISOString().split('T')[0];
 const WEEK_START      = getMonday(OPERATING_TODAY);
 const DAY_LABELS  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 

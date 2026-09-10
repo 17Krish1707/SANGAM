@@ -62,17 +62,7 @@ export default function ConflictsExceptions() {
   const [activeTab, setActiveTab] = useState<'exceptions' | 'advanced'>('exceptions');
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
-  const [exceptions, setExceptions] = useState<OperationalException[]>([
-    {
-      id: 'exc-1',
-      type: 'warning',
-      title: 'Protected Train Headway Buffer Review',
-      description: 'Block on B-C is scheduled with a 12-minute safety headway after Passenger Train P101. Standard headway is 10–15 minutes.',
-      affectedSection: 'Station B → C',
-      affectedTrain: 'P101 (Passenger)',
-      recommendedAction: 'Verify Clearance',
-    },
-  ]);
+  const [exceptions, setExceptions] = useState<OperationalException[]>([]);
 
   const handleResolveAction = async (exc: OperationalException) => {
     setActionNotice(`Exception verified and cleared: ${exc.title}`);

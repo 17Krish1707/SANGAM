@@ -8,17 +8,17 @@ interface MiniCorridorStatusProps {
 
 export default function MiniCorridorStatus({
   sectionName,
-  activeSectionCode = 'B-C',
+  activeSectionCode = 'Matunga–Sion',
   className = '',
 }: MiniCorridorStatusProps) {
-  const sections = ['A-B', 'B-C', 'C-D', 'D-E', 'E-F'];
+  const sections = ['Dadar–Matunga', 'Matunga–Sion', 'Sion–Kurla', 'Kurla–Ghatkopar', 'Ghatkopar–Vikhroli'];
 
   return (
     <div className={`inline-flex items-center gap-1 px-2.5 py-1.5 bg-panel border border-border rounded-md select-none text-2xs ${className}`}>
-      <span className="font-mono text-text-secondary mr-1">STN A</span>
+      <span className="font-mono text-text-secondary mr-1">Dadar</span>
 
       {sections.map((s) => {
-        const isActive = s === activeSectionCode || (sectionName && sectionName.includes(s));
+        const isActive = s === activeSectionCode || (sectionName && (sectionName.includes(s) || sectionName.replace('-', '–').includes(s)));
         return (
           <React.Fragment key={s}>
             <div
@@ -32,7 +32,7 @@ export default function MiniCorridorStatus({
         );
       })}
 
-      <span className="font-mono text-text-secondary ml-1">STN F</span>
+      <span className="font-mono text-text-secondary ml-1">Vikhroli</span>
     </div>
   );
 }

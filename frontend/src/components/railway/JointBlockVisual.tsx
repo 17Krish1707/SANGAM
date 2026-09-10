@@ -9,7 +9,7 @@ interface JointBlockVisualProps {
 }
 
 export default function JointBlockVisual({
-  sectionName = 'Section B-C',
+  sectionName = 'Matunga–Sion',
   timeRange = '01:05 → 02:45',
   durationMin = 100,
   departments = [

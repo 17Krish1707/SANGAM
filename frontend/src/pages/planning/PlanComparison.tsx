@@ -17,7 +17,7 @@ import {
   type GeneratedBlock,
 } from '../../lib/apiClient';
 
-const OPERATING_TODAY = '2026-09-07';
+const OPERATING_TODAY = new Date().toISOString().split('T')[0];
 
 function addDays(iso: string, n: number) {
   const d = new Date(iso);
