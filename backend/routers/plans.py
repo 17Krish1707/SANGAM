@@ -1363,7 +1363,13 @@ def report_operational_change(
             tm = db.query(TrainMovement).filter(TrainMovement.section_id == sec_id).first()
 
         if tm:
-            tm.exit_time = tm.exit_time + timedelta(minutes=delay_min)
+            sched_entry = tm.scheduled_entry_time or tm.entry_time
+            sched_exit = tm.scheduled_exit_time or tm.exit_time
+            tm.scheduled_entry_time = sched_entry
+            tm.scheduled_exit_time = sched_exit
+            tm.delay_minutes = delay_min
+            tm.entry_time = sched_entry + timedelta(minutes=delay_min)
+            tm.exit_time = sched_exit + timedelta(minutes=delay_min)
             tm.notes = f"Delayed by {delay_min} min (Operational report)"
             db.commit()
 

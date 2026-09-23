@@ -53,10 +53,10 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
     const e = new Date(endStr).getTime();
 
     const startMin = Math.max(0, (s - base) / (1000 * 60));
-    const durationMin = Math.max(5, (e - s) / (1000 * 60));
+    const durationMin = Math.max(0, (e - s) / (1000 * 60));
 
     const leftPx = (startMin / 60) * hourWidth;
-    const widthPx = Math.max(16, (durationMin / 60) * hourWidth);
+    const widthPx = (durationMin / 60) * hourWidth;
 
     return { leftPx, widthPx, s, e };
   };
@@ -174,19 +174,50 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
 
       {/* Prominent Operational Conflict Banner */}
       {conflicts.length > 0 && (
-        <div className="bg-red-50 border-b border-red-200 px-5 py-2.5 flex items-center justify-between gap-3 text-xs text-red-800 animate-in fade-in duration-150">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-red-600 flex-shrink-0 animate-bounce" />
-            <span className="font-bold uppercase tracking-wider text-[11px] text-red-700 font-mono">
-              Live Conflict Detected:
-            </span>
-            <span className="text-red-900 font-medium">
-              Train {conflicts[0].train.train_number} ({conflicts[0].train.train_type}) now overlaps maintenance possession on {conflicts[0].sectionName} due to delay/schedule offset.
-            </span>
+        <div className="bg-red-50 border-b-2 border-red-300 px-5 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-red-900 animate-in fade-in duration-150 shadow-inner">
+          <div className="flex items-start md:items-center gap-3">
+            <div className="p-2 bg-red-100 border border-red-300 rounded-lg flex-shrink-0 mt-0.5 md:mt-0">
+              <ShieldAlert className="w-5 h-5 text-red-600 animate-bounce" />
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono font-black text-xs px-2 py-0.5 rounded bg-red-600 text-white tracking-wide uppercase">
+                  LIVE CONFLICT DETECTED
+                </span>
+                <span className="font-semibold text-red-900">
+                  Train movement infringes authorized maintenance possession!
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-red-800 pt-0.5">
+                <span>
+                  Affected Train: <strong className="font-mono font-bold text-red-950">{conflicts[0].train.train_number}</strong> ({conflicts[0].train.train_type})
+                </span>
+                <span>
+                  Affected Section: <strong className="font-bold text-red-950">{conflicts[0].sectionName}</strong>
+                </span>
+                <span>
+                  Overlapping Interval: <strong className="font-mono font-bold text-red-950 bg-white/80 px-1.5 py-0.5 rounded border border-red-300">
+                    {new Date(conflicts[0].overlapStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {' – '}
+                    {new Date(conflicts[0].overlapEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </strong>
+                </span>
+                {conflicts[0].train.delay_minutes && conflicts[0].train.delay_minutes > 0 ? (
+                  <span className="font-mono text-red-700">
+                    (+{conflicts[0].train.delay_minutes}m delay offset)
+                  </span>
+                ) : null}
+              </div>
+            </div>
           </div>
-          <span className="text-[11px] font-semibold bg-white border border-red-300 text-red-700 px-2.5 py-1 rounded shadow-xs">
-            Plan Needs Update • Re-plan Required
-          </span>
+          <div className="flex items-center gap-2 flex-shrink-0 self-end md:self-center">
+            <a
+              href="/operations/replan"
+              className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <span>Plan Needs Update • Re-plan Required</span>
+            </a>
+          </div>
         </div>
       )}
 
@@ -326,7 +357,6 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                           const { leftPx, widthPx } = getLeftAndWidth(tr.entry_time, tr.exit_time);
                           const isGoods = tr.train_type.toLowerCase().includes('goods');
                           const isDelayed = tr.delay_minutes && tr.delay_minutes > 0;
-                          const bufferPx = (10 / 60) * hourWidth; // 10 min rear buffer
 
                           return (
                             <div
@@ -340,14 +370,13 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                               onMouseLeave={() => setHoveredTrain(null)}
                               style={{
                                 left: `${leftPx}px`,
-                                width: `${widthPx + bufferPx}px`,
+                                width: `${widthPx}px`,
                               }}
                               className="absolute h-7 flex items-center transition-transform hover:scale-[1.02] cursor-pointer"
                             >
                               {/* Main Train Body */}
                               <div
-                                style={{ width: `${widthPx}px` }}
-                                className={`h-full rounded-l px-2 flex items-center justify-between text-white text-[10px] font-mono font-bold shadow-xs border ${
+                                className={`w-full h-full rounded px-2 flex items-center justify-between text-white text-[10px] font-mono font-bold shadow-xs border ${
                                   isGoods
                                     ? 'bg-amber-600 border-amber-700'
                                     : 'bg-sky-600 border-sky-700'
