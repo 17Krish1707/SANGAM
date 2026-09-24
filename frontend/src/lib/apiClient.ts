@@ -123,16 +123,97 @@ export function setupCorridor(data: CorridorSetupInput): Promise<{ message: stri
   });
 }
 
-export function resetOperationalDatabase(keepSections: boolean = false): Promise<{ status: string; message: string }> {
-  return request<{ status: string; message: string }>(`/api/rules/reset-operational-data?keep_sections=${keepSections}`, {
-    method: 'POST',
-  });
+export interface CorridorInfrastructureEntity {
+  id: string;
+  section_id: string;
+  section_name: string;
+  asset_type: string;
+  track_line: string;
+  start_ref: string;
+  end_ref: string;
+  chainage_start_km: number | null;
+  chainage_end_km: number | null;
+  health_state: string;
+  notes: string | null;
 }
 
-export function initializeStandardDataset(): Promise<{ status: string; message: string; data?: any }> {
-  return request<{ status: string; message: string; data?: any }>('/api/rules/initialize-standard-dataset', {
-    method: 'POST',
-  });
+export interface CorridorInfrastructureData {
+  corridor_name: string;
+  from_station: string;
+  to_station: string;
+  total_length_km: number;
+  configured_lines: string[];
+  sections: Section[];
+  departments: {
+    engineering: {
+      name: string;
+      reference_unit: string;
+      entities: CorridorInfrastructureEntity[];
+      count: number;
+    };
+    signalling: {
+      name: string;
+      reference_unit: string;
+      entities: CorridorInfrastructureEntity[];
+      count: number;
+    };
+    traction: {
+      name: string;
+      reference_unit: string;
+      entities: CorridorInfrastructureEntity[];
+      count: number;
+    };
+  };
+}
+
+export function getCorridorInfrastructure(fromStation?: string, toStation?: string): Promise<CorridorInfrastructureData> {
+  const qs = new URLSearchParams();
+  if (fromStation) qs.set('from_station', fromStation);
+  if (toStation) qs.set('to_station', toStation);
+  const qStr = qs.toString();
+  return request<CorridorInfrastructureData>(`/api/sections/corridor/infrastructure${qStr ? `?${qStr}` : ''}`);
+}
+
+export interface CoordinationPair {
+  task_a: {
+    id: string;
+    code: string;
+    dept: string;
+    type: string;
+    location: string;
+    track: string;
+    requires_power: boolean;
+  };
+  task_b: {
+    id: string;
+    code: string;
+    dept: string;
+    type: string;
+    location: string;
+    track: string;
+    requires_power: boolean;
+  };
+  spatial_overlap: string;
+  overlap_km: number;
+  track_relation: string;
+  protection_check: string;
+  requires_power_cut: boolean;
+  result: string;
+  result_color: string;
+  reason: string;
+  is_cross_department: boolean;
+}
+
+export interface CorridorCoordinationResponse {
+  total_tasks_evaluated: number;
+  total_coordination_pairs: number;
+  candidate_joint_pairs: number;
+  pairs: CoordinationPair[];
+}
+
+export function getCorridorCoordinationAnalysis(sectionIds?: string[]): Promise<CorridorCoordinationResponse> {
+  const qs = sectionIds && sectionIds.length > 0 ? `?section_ids=${sectionIds.join(',')}` : '';
+  return request<CorridorCoordinationResponse>(`/api/sections/corridor/coordination-analysis${qs}`);
 }
 
 
@@ -166,6 +247,10 @@ export interface MaintenanceTask {
   track_line?: string | null;
   chainage_from_km?: number | null;
   chainage_to_km?: number | null;
+  location_type?: string | null;
+  start_entity_id?: string | null;
+  end_entity_id?: string | null;
+  location_display?: string | null;
   block_type_required?: string | null;
   requires_traffic_block?: boolean;
   requires_signal_disconnection?: boolean;
@@ -1370,6 +1455,18 @@ export interface CompatibilityMatrixResponse {
 export function getCorridorCompatibilityMatrix(sectionId?: string): Promise<CompatibilityMatrixResponse> {
   const q = sectionId ? `?section_id=${sectionId}` : '';
   return request<CompatibilityMatrixResponse>(`/api/conflicts/compatibility-matrix${q}`);
+}
+
+export function resetOperationalDatabase(keepSections: boolean = false): Promise<{ status: string; message: string }> {
+  return request<{ status: string; message: string }>(`/api/rules/reset-operational-data?keep_sections=${keepSections}`, {
+    method: 'POST',
+  });
+}
+
+export function initializeStandardDataset(): Promise<{ status: string; message: string; data?: any }> {
+  return request<{ status: string; message: string; data?: any }>('/api/rules/initialize-standard-dataset', {
+    method: 'POST',
+  });
 }
 
 

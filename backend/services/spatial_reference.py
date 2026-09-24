@@ -44,13 +44,19 @@ def resolve_task_spatial_coordinates(task: Any) -> Tuple[float, float, str]:
     return min(from_km, to_km), max(from_km, to_km), track
 
 
-def check_track_compatibility(track_a: str, track_b: str) -> bool:
+def check_track_compatibility(track_a: str, track_b: str, is_trd_isolation: bool = False) -> bool:
     """
     Verifies if two tasks operate on compatible tracks for a joint possession.
-    Tasks on 'BOTH' interact with either track; UP/DOWN can coexist under integrated
-    power-cut or yard possessory blocks if clear of collision.
+    - Tasks on 'BOTH' or 'YARD' interact with either line.
+    - Under Indian Railways OHE rules, a TRD Power Block (switching off 25kV OHE electrical section)
+      applies to the electrical elementary section/catenary zone. It can safely co-exist with Civil Track
+      works (e.g. tamping, rail inspection, de-stressing) on the same line or under shared isolation.
+    - S&T disconnection on points/circuits can safely co-exist with ENG or TRD under coordinated possession.
     """
-    if track_a == "BOTH" or track_b == "BOTH":
+    if track_a == "BOTH" or track_b == "BOTH" or track_a == "YARD" or track_b == "YARD":
+        return True
+    if is_trd_isolation:
+        # A Power Block can coordinate with engineering work under traction power cut
         return True
     return track_a == track_b
 
@@ -83,6 +89,11 @@ def evaluate_tasks_spatial_compatibility(task_a: Any, task_b: Any) -> Dict[str, 
     """
     Determines whether two maintenance tasks from ENG, S&T, or TRD can be physically
     and operationally coordinated under the same possession envelope.
+    Accounts for:
+      - Railway corridor section match
+      - Natural department references (ENG chainage, S&T signals, TRD OHE mast & electrical isolation)
+      - Power block isolation vs Traffic block
+      - Physical spatial chainage overlap along the corridor
     """
     # 1. Must share corridor section
     sec_a = str(getattr(task_a, "section_id", ""))
@@ -92,26 +103,38 @@ def evaluate_tasks_spatial_compatibility(task_a: Any, task_b: Any) -> Dict[str, 
             "compatible": False,
             "reason": "Different railway corridor sections",
             "overlap_km": 0.0,
+            "spatial_overlap": False,
+            "track_relation": "Different Sections",
+            "protection_type": "Independent",
         }
 
-    # 2. Track compatibility
+    dept_a = getattr(task_a.department, "code", "GEN") if getattr(task_a, "department", None) else "GEN"
+    dept_b = getattr(task_b.department, "code", "GEN") if getattr(task_b, "department", None) else "GEN"
+
     span_a_start, span_a_end, track_a = resolve_task_spatial_coordinates(task_a)
     span_b_start, span_b_end, track_b = resolve_task_spatial_coordinates(task_b)
 
-    track_ok = check_track_compatibility(track_a, track_b)
+    # 2. TRD Power Block / Isolation evaluation
+    is_trd_involved = (dept_a == "TRD" or dept_b == "TRD" or 
+                       getattr(task_a, "requires_power_isolation", False) or 
+                       getattr(task_b, "requires_power_isolation", False))
+    requires_power_cut = bool(getattr(task_a, "requires_power_isolation", False) or 
+                              getattr(task_b, "requires_power_isolation", False))
+
+    track_ok = check_track_compatibility(track_a, track_b, is_trd_isolation=is_trd_involved)
     if not track_ok:
         return {
             "compatible": False,
             "reason": f"Track direction divergence: {track_a} vs {track_b}",
             "overlap_km": 0.0,
+            "spatial_overlap": False,
+            "track_relation": f"Conflicting ({track_a} vs {track_b})",
+            "protection_type": "Incompatible Track",
         }
 
     # 3. Spatial overlap along corridor chainage
-    dept_a = getattr(task_a.department, "code", "GEN") if getattr(task_a, "department", None) else "GEN"
-    dept_b = getattr(task_b.department, "code", "GEN") if getattr(task_b, "department", None) else "GEN"
-
     # Multi-department coordination typically benefits from a wider spatial envelop (e.g. OHE tension length ~ 500m)
-    buffer = 0.15 if dept_a != dept_b else 0.05
+    buffer = 0.20 if dept_a != dept_b else 0.05
     overlapping, overlap_len = check_spatial_overlap((span_a_start, span_a_end), (span_b_start, span_b_end), buffer_km=buffer)
 
     if not overlapping:
@@ -119,17 +142,29 @@ def evaluate_tasks_spatial_compatibility(task_a: Any, task_b: Any) -> Dict[str, 
             "compatible": False,
             "reason": f"Spatial separation along corridor: KM {span_a_start:.1f}–{span_a_end:.1f} vs KM {span_b_start:.1f}–{span_b_end:.1f} exceeds coordinated possession radius.",
             "overlap_km": 0.0,
+            "spatial_overlap": False,
+            "track_relation": f"Same corridor, separated by {abs(span_a_start - span_b_end):.2f} km",
+            "protection_type": "Spatial Separation",
         }
 
     # Combined possession envelope
     combined_start = min(span_a_start, span_b_start)
     combined_end = max(span_a_end, span_b_end)
 
+    track_relation_desc = "Same Line" if track_a == track_b else f"Shared Zone ({track_a} & {track_b})"
+    protection_desc = "Integrated Traffic + Power Block (25kV De-energized)" if requires_power_cut else "Traffic Block & Track Possession"
+    if getattr(task_a, "requires_signal_disconnection", False) or getattr(task_b, "requires_signal_disconnection", False):
+        protection_desc += " + S&T Disconnection"
+
     return {
         "compatible": True,
-        "reason": f"Spatially aligned in corridor ({track_a}): overlapping chainage {combined_start:.2f} km → {combined_end:.2f} km.",
+        "reason": f"Spatially aligned in corridor ({track_relation_desc}): overlapping chainage {combined_start:.2f} km → {combined_end:.2f} km.",
         "overlap_km": overlap_len,
         "combined_span": (combined_start, combined_end),
+        "spatial_overlap": True,
+        "track_relation": track_relation_desc,
+        "protection_type": protection_desc,
+        "requires_power_cut": requires_power_cut,
     }
 
 

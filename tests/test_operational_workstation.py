@@ -85,9 +85,11 @@ def test_task_full_crud_and_lifecycle():
     assert complete_res.status_code == 200
     assert complete_res.json()["status_now"] == "Completed"
 
-    # 7. Delete duplicated task (DELETE)
+    # 7. Delete duplicated task and completed task (DELETE)
     del_res = client.delete(f"/api/tasks/{dup_id}")
     assert del_res.status_code == 200
+    del_orig = client.delete(f"/api/tasks/{task_id}")
+    assert del_orig.status_code == 200
 
 
 def test_resource_crud_and_availability():
