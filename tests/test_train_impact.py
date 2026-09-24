@@ -97,5 +97,6 @@ def test_train_impact_calculations():
 
     # Cleanup test records
     db.query(TrainMovement).filter(TrainMovement.id.in_(["train-impact-1", "train-impact-2", "train-impact-3"])).delete(synchronize_session=False)
+    db.query(RailwaySection).filter(RailwaySection.id == sec_id).delete(synchronize_session=False)
     db.commit()
     db.close()

@@ -227,10 +227,12 @@ def run_sangam_optimizer(
                 t2_id = str(tasks[i2].id)
 
                 is_compat = False
+                is_explicit_compat = False
                 spatial_res = evaluate_tasks_spatial_compatibility(tasks[i1], tasks[i2])
                 if spatial_res.get("compatible", False):
                     if graph and graph.has_edge(t1_id, t2_id) and graph[t1_id][t2_id].get("relationship") == "compatible":
                         is_compat = True
+                        is_explicit_compat = True
                     elif tasks[i1].department_id != tasks[i2].department_id:
                         # Multi-department co-location
                         if not (graph and has_conflict(graph, t1_id, t2_id)):
@@ -241,7 +243,7 @@ def run_sangam_optimizer(
                     model.Add(z_joint <= x[i1, j])
                     model.Add(z_joint <= x[i2, j])
                     model.Add(z_joint >= x[i1, j] + x[i2, j] - 1)
-                    joint_pairs.append(z_joint)
+                    joint_pairs.append((z_joint, 3.0 if is_explicit_compat else 1.0))
 
     # OBJECTIVE FUNCTION TERMS
     # Balanced weights:
@@ -276,8 +278,8 @@ def run_sangam_optimizer(
         objective_terms.append(risk_coeff * risk * y[j])
         objective_terms.append(dur_coeff * dur * y[j])
 
-    for z_joint in joint_pairs:
-        objective_terms.append(joint_reward * z_joint)
+    for z_joint, mult in joint_pairs:
+        objective_terms.append(int(joint_reward * mult) * z_joint)
 
     model.Minimize(sum(objective_terms))
 

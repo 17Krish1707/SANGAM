@@ -26,7 +26,7 @@ def build_section_graph(
     if tasks is None and db is not None:
         query = db.query(MaintenanceTask).filter(
             MaintenanceTask.section_id == section_id,
-            MaintenanceTask.status.in_(["Pending", "Ready for Planning"]),
+            MaintenanceTask.status.in_(["Pending", "Ready for Planning", "Scheduled"]),
         )
         if end_date:
             query = query.filter(MaintenanceTask.due_date <= end_date)

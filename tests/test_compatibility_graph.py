@@ -111,9 +111,13 @@ def test_compatibility_graph_hand_built_scenario():
 
 def test_section_graph_api_endpoint():
     db = SessionLocal()
-    section = db.query(RailwaySection).first()
-    assert section is not None
-    sec_id = str(section.id)
+    task = db.query(MaintenanceTask).filter(MaintenanceTask.section_id != None).first()
+    if task and task.section_id:
+        sec_id = str(task.section_id)
+    else:
+        section = db.query(RailwaySection).first()
+        assert section is not None
+        sec_id = str(section.id)
     db.close()
 
     # Test list sections endpoint

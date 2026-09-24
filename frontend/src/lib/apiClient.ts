@@ -259,7 +259,8 @@ export interface MaintenanceTask {
   deferred_reason?: string | null;
   deferred_until?: string | null;
   completed_at?: string | null;
-  completion_notes?: string | null;
+  department?: string;
+  priority?: string;
   created_at: string | null;
 }
 
@@ -279,7 +280,6 @@ export function getTasks(filters: TaskFilters = {}): Promise<MaintenanceTask[]> 
   if (filters.min_priority !== undefined) params.set('min_priority', String(filters.min_priority));
   if (filters.overdue_only) params.set('overdue_only', 'true');
   if (filters.section_id)  params.set('section_id',  filters.section_id);
-  if (filters.status)      params.set('status',      filters.status);
   const qs = params.toString();
   return request<MaintenanceTask[]>(`/api/tasks${qs ? `?${qs}` : ''}`);
 }
@@ -307,6 +307,7 @@ export function getTaskPriorityBreakdown(taskId: string): Promise<PriorityBreakd
 
 export interface PlanGenerateRequest {
   section_ids?: string[];
+  task_ids?: string[];
   start_date?: string;
   end_date?: string;
   horizon?: 'weekly' | 'monthly';
@@ -350,6 +351,7 @@ export interface BlockTask {
   duration_min: number;
   priority_score: number;
   requires_power_isolation: boolean;
+  requires_signal_disconnection?: boolean;
   crew_type?: string;
   task_start?: string;
   task_end?: string;
@@ -366,7 +368,7 @@ export interface GeneratedBlock {
   id: string;
   run_id: string;
   section_id: string;
-  section_name: string | null;
+  section_name?: string | null;
   corridor_name?: string | null;
   from_station?: string | null;
   to_station?: string | null;
@@ -390,6 +392,40 @@ export interface GeneratedBlock {
   actual_end?: string | null;
   why_together?: string;
   train_impact?: any;
+  track_line?: string;
+  protection_types?: string[];
+  date_fmt?: string;
+  start_time_fmt?: string;
+  end_time_fmt?: string;
+}
+
+export interface PlanAlternativeBlock {
+  id: string;
+  section_id: string;
+  section_name: string;
+  from_station: string;
+  to_station: string;
+  track_line: string;
+  block_start: string;
+  block_end: string;
+  start_time_fmt: string;
+  end_time_fmt: string;
+  duration_min: number;
+  is_joint_block: boolean;
+  protection_summary: string;
+  protections: string[];
+  tasks: Array<{
+    id: string;
+    task_code: string;
+    department: string;
+    maintenance_type: string;
+    track_line: string;
+    duration_min: number;
+    location_display: string;
+  }>;
+  tasks_count: number;
+  approval_status?: string;
+  train_impact?: any;
 }
 
 export interface PlanAlternative {
@@ -402,6 +438,7 @@ export interface PlanAlternative {
   critical_tasks_ratio: string;
   priority_coverage_pct: number;
   track_closure_hours: number;
+  total_block_minutes?: number;
   joint_blocks_count: number;
   trains_affected_count: number;
   nearby_trains_count: number;
@@ -410,6 +447,7 @@ export interface PlanAlternative {
   train_impact_tier: 'zero' | 'amber' | 'red';
   train_impact_badge: string;
   solver_objective_value: number;
+  blocks?: PlanAlternativeBlock[];
 }
 
 export interface PlanDetail {
@@ -437,6 +475,56 @@ export function getPlan(runId: string): Promise<PlanDetail> {
 
 export function getPlanAlternatives(runId: string): Promise<{ alternatives: PlanAlternative[] }> {
   return request<{ alternatives: PlanAlternative[] }>(`/api/plans/${runId}/alternatives`);
+}
+
+export function approvePlan(runId: string, controllerName?: string, notes?: string): Promise<{ status: string; run_id: string; blocks_approved: number; tasks_scheduled: number }> {
+  return request(`/api/plans/${runId}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({ controller_name: controllerName, notes }),
+  });
+}
+
+export interface ApprovedBlockItem {
+  id: string;
+  block_code: string;
+  run_id: string;
+  section_id: string;
+  section_name: string;
+  from_station: string;
+  to_station: string;
+  track_line: string;
+  block_start: string;
+  block_end: string;
+  duration_min: number;
+  is_joint_block: boolean;
+  protections: string[];
+  protection_summary: string;
+  approval_status: string;
+  execution_status: string;
+  approval_note?: string;
+  approved_at?: string;
+  approved_by?: string;
+  tasks: Array<{
+    id: string;
+    task_code: string;
+    department: string;
+    maintenance_type: string;
+    severity?: string;
+    duration_min: number;
+    location_display: string;
+    track_line: string;
+  }>;
+  tasks_count: number;
+  spatial_coverage: string;
+  block_id?: string;
+  start_time_fmt?: string;
+  end_time_fmt?: string;
+  date_fmt?: string;
+  handover_notes?: string;
+}
+
+export function getAllApprovedBlocks(): Promise<ApprovedBlockItem[]> {
+  return request<ApprovedBlockItem[]>('/api/plans/approved');
 }
 
 // ─────────────────────────────────────────────
@@ -1007,6 +1095,8 @@ export function importCsvTasks(tasks: any[]): Promise<{ status: string; imported
 export interface TimetableTrain {
   id: string;
   train_number: string;
+  train_name?: string;
+  direction?: string;
   section_id: string;
   section_name: string;
   train_type: 'Passenger' | 'Goods';

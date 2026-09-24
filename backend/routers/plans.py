@@ -23,6 +23,7 @@ router = APIRouter(prefix="/api/plans", tags=["Block Planning & Optimization"])
 
 class PlanGenerateRequest(BaseModel):
     section_ids: Optional[List[str]] = None
+    task_ids: Optional[List[str]] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     horizon: str = "weekly"  # weekly | monthly
@@ -97,7 +98,14 @@ def generate_plans(
         start_date=start_dt,
         end_date=end_dt,
         horizon=req.horizon,
+        task_ids=req.task_ids,
     )
+
+    if not bundle.tasks:
+        raise HTTPException(
+            status_code=400,
+            detail="No eligible maintenance tasks found for selected corridor. Please ensure maintenance tasks exist."
+        )
 
     results = []
 
@@ -684,6 +692,80 @@ def get_task_explanation(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.get("/approved")
+def get_all_approved_blocks(db: Session = Depends(get_db)):
+    """
+    Fetch all approved blocks across the entire system.
+    """
+    blocks = (
+        db.query(GeneratedBlock)
+        .filter(GeneratedBlock.approval_status == "approved")
+        .order_by(GeneratedBlock.block_start.asc())
+        .all()
+    )
+
+    results = []
+    for idx, b in enumerate(blocks, 1):
+        gbt_rows = (
+            db.query(GeneratedBlockTask, MaintenanceTask)
+            .join(MaintenanceTask, GeneratedBlockTask.task_id == MaintenanceTask.id)
+            .filter(GeneratedBlockTask.block_id == b.id)
+            .all()
+        )
+        tasks_list = []
+        protections = set(["Traffic Block"])
+        lines_set = set()
+
+        for gbt, t in gbt_rows:
+            if t.requires_power_isolation:
+                protections.add("Power Block")
+            if getattr(t, "requires_signal_disconnection", False):
+                protections.add("S&T Disconnection")
+            if getattr(t, "track_line", None):
+                lines_set.add(t.track_line)
+
+            tasks_list.append({
+                "id": str(t.id),
+                "task_code": t.task_code,
+                "department": t.department.code if t.department else "GEN",
+                "maintenance_type": t.maintenance_type,
+                "severity": t.severity,
+                "duration_min": gbt.scheduled_duration_min or t.estimated_duration_min,
+                "location_display": getattr(t, "location_display", None) or f"KM {getattr(t, 'chainage_from_km', 0.0):.1f}–{getattr(t, 'chainage_to_km', 1.0):.1f}",
+                "track_line": getattr(t, "track_line", "UP"),
+            })
+
+        dur_min = int((b.block_end - b.block_start).total_seconds() // 60)
+        block_code = f"BLK-{b.block_start.strftime('%Y')}-{str(idx).zfill(3)}"
+
+        results.append({
+            "id": str(b.id),
+            "block_code": block_code,
+            "run_id": str(b.run_id),
+            "section_id": str(b.section_id),
+            "section_name": b.section.name if b.section else "Corridor Section",
+            "from_station": b.section.from_station if b.section else "",
+            "to_station": b.section.to_station if b.section else "",
+            "track_line": list(lines_set)[0] if len(lines_set) == 1 else ("UP" if "UP" in lines_set else "DOWN"),
+            "block_start": b.block_start.isoformat(),
+            "block_end": b.block_end.isoformat(),
+            "duration_min": dur_min,
+            "is_joint_block": b.is_joint_block,
+            "protections": sorted(list(protections)),
+            "protection_summary": " + ".join(sorted(list(protections))),
+            "approval_status": b.approval_status,
+            "execution_status": getattr(b, "execution_status", "approved") or "approved",
+            "approval_note": b.approval_note,
+            "approved_at": b.approved_at.isoformat() if b.approved_at else None,
+            "approved_by": b.approved_by,
+            "tasks": tasks_list,
+            "tasks_count": len(tasks_list),
+            "spatial_coverage": b.spatial_coverage or (b.section.name if b.section else ""),
+        })
+
+    return results
+
+
 @router.get("/{run_id}")
 def get_plan(
     run_id: str,
@@ -798,22 +880,20 @@ def get_plan(
         "provenance_disclaimer": "Representative prototype operational dataset.",
     }
 
-
 @router.get("/{run_id}/alternatives")
 def get_plan_alternatives(
     run_id: str,
     db: Session = Depends(get_db),
 ):
     """
-    Returns ranked Plan Alternatives (Plan A Recommended, Plan B, Plan C) for the given run context.
+    Returns ranked Plan Alternatives (Plan A Recommended, Plan B, Plan C) with full block and task details.
     """
     target = db.query(OptimizationRun).filter(OptimizationRun.id == run_id).first()
     if not target:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    # Find sibling runs created within 10 minutes of target.started_at
-    time_min = target.started_at - timedelta(minutes=10)
-    time_max = target.started_at + timedelta(minutes=10)
+    time_min = target.started_at - timedelta(minutes=15)
+    time_max = target.started_at + timedelta(minutes=15)
     siblings = (
         db.query(OptimizationRun)
         .filter(
@@ -843,21 +923,72 @@ def get_plan_alternatives(
 
         sched_count = sib.tasks_scheduled if sib.tasks_scheduled is not None else len(sib_blocks)
 
+        blocks_detail = []
+        for b in sib_blocks:
+            gbt_rows = (
+                db.query(GeneratedBlockTask, MaintenanceTask)
+                .join(MaintenanceTask, GeneratedBlockTask.task_id == MaintenanceTask.id)
+                .filter(GeneratedBlockTask.block_id == b.id)
+                .all()
+            )
+            b_tasks = []
+            protections = set(["Traffic Block"])
+            lines = set()
+            for gbt, t in gbt_rows:
+                if t.requires_power_isolation:
+                    protections.add("Power Block")
+                if getattr(t, "requires_signal_disconnection", False):
+                    protections.add("S&T Disconnection")
+                lines.add(getattr(t, "track_line", "UP") or "UP")
+                b_tasks.append({
+                    "id": str(t.id),
+                    "task_code": t.task_code,
+                    "department": t.department.code if t.department else "GEN",
+                    "maintenance_type": t.maintenance_type,
+                    "track_line": getattr(t, "track_line", "UP") or "UP",
+                    "duration_min": gbt.scheduled_duration_min or t.estimated_duration_min,
+                    "location_display": getattr(t, "location_display", None) or f"KM {getattr(t, 'chainage_from_km', 0.0):.1f}–{getattr(t, 'chainage_to_km', 1.0):.1f}",
+                })
+
+            b_dur = int((b.block_end - b.block_start).total_seconds() // 60)
+            b_line = list(lines)[0] if len(lines) == 1 else ("UP" if "UP" in lines else "DOWN")
+            single_block_impact = compute_plan_train_impact(db, [b])
+
+            blocks_detail.append({
+                "id": str(b.id),
+                "section_id": str(b.section_id),
+                "section_name": b.section.name if b.section else "Corridor Section",
+                "from_station": b.section.from_station if b.section else "",
+                "to_station": b.section.to_station if b.section else "",
+                "track_line": b_line,
+                "block_start": b.block_start.isoformat(),
+                "block_end": b.block_end.isoformat(),
+                "start_time_fmt": b.block_start.strftime("%H:%M"),
+                "end_time_fmt": b.block_end.strftime("%H:%M"),
+                "duration_min": b_dur,
+                "is_joint_block": b.is_joint_block,
+                "protection_summary": " + ".join(sorted(list(protections))),
+                "protections": sorted(list(protections)),
+                "tasks": b_tasks,
+                "tasks_count": len(b_tasks),
+                "approval_status": getattr(b, "approval_status", "recommended"),
+                "train_impact": single_block_impact,
+            })
+
         if is_rec:
             exp = (
                 f"Best balance: all critical work covered ({len(all_crit)}/{len(all_crit)}), "
-                f"zero train conflicts ({ti['directly_affected_count']} affected), "
-                f"{joint_cnt} joint blocks, lowest track closure ({tot_hours} h)."
+                f"{ti['directly_affected_count']} trains affected, "
+                f"{joint_cnt} joint blocks, {tot_hours} h track closure."
             )
         elif idx == 1:
             exp = (
-                f"Alternative throughput: schedules {sched_count} tasks across {tot_hours} h track closure "
-                f"with {ti['min_train_margin_min']} min safety headway."
+                f"Alternative schedule: schedules {sched_count} tasks, "
+                f"{ti['directly_affected_count']} trains affected with {ti['min_train_margin_min']} min safety margin."
             )
         else:
             exp = (
-                f"Conservative schedule: maximized train separation buffer ({ti['min_train_margin_min']} min margin) "
-                f"with {joint_cnt} joint blocks."
+                f"Conservative slot: schedules {sched_count} tasks with {ti['min_train_margin_min']} min train buffer."
             )
 
         ranked.append({
@@ -870,6 +1001,7 @@ def get_plan_alternatives(
             "critical_tasks_ratio": f"{len(all_crit)} / {len(all_crit)}" if len(all_crit) > 0 else f"{sched_count} / {len(all_tasks)}",
             "priority_coverage_pct": round(min(100.0, (sched_count / max(1, len(all_tasks))) * 100.0), 1),
             "track_closure_hours": tot_hours,
+            "total_block_minutes": tot_min,
             "joint_blocks_count": joint_cnt,
             "trains_affected_count": ti["directly_affected_count"],
             "nearby_trains_count": ti["nearby_count"],
@@ -878,6 +1010,7 @@ def get_plan_alternatives(
             "train_impact_tier": ti["impact_tier"],
             "train_impact_badge": ti["impact_badge_text"],
             "solver_objective_value": sib.objective_value,
+            "blocks": blocks_detail,
         })
 
     return {
@@ -888,12 +1021,62 @@ def get_plan_alternatives(
     }
 
 
-
 class BlockApprovalRequest(BaseModel):
     action: str  # approve | modify | reject | recommended
     controller_name: Optional[str] = "Chief Controller (Central Division)"
     notes: Optional[str] = None
     locked: Optional[bool] = None
+
+
+class PlanApproveRequest(BaseModel):
+    controller_name: Optional[str] = "Chief Operations Controller (Central Railway)"
+    notes: Optional[str] = None
+
+
+@router.post("/{run_id}/approve")
+def approve_entire_plan(
+    run_id: str,
+    req: Optional[PlanApproveRequest] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Approve all blocks in the recommended plan and update all included tasks to Scheduled.
+    """
+    opt_run = db.query(OptimizationRun).filter(OptimizationRun.id == run_id).first()
+    if not opt_run:
+        raise HTTPException(status_code=404, detail="Optimization run not found")
+
+    controller = req.controller_name if req and req.controller_name else "Chief Operations Controller (Central Railway)"
+    notes = req.notes if req and req.notes else "Possession sanctioned by Controller"
+
+    blocks = db.query(GeneratedBlock).filter(GeneratedBlock.run_id == run_id).all()
+    now = datetime.utcnow()
+    scheduled_tasks = 0
+
+    for block in blocks:
+        block.approval_status = "approved"
+        block.execution_status = "approved"
+        block.approved_at = now
+        block.approved_by = controller
+        block.approval_note = notes
+        block.locked = True
+
+        gbt_rows = db.query(GeneratedBlockTask).filter(GeneratedBlockTask.block_id == block.id).all()
+        for gbt in gbt_rows:
+            task = db.query(MaintenanceTask).filter(MaintenanceTask.id == gbt.task_id).first()
+            if task:
+                task.status = "Scheduled"
+                scheduled_tasks += 1
+
+    db.commit()
+    return {
+        "status": "success",
+        "run_id": run_id,
+        "blocks_approved": len(blocks),
+        "tasks_scheduled": scheduled_tasks,
+        "approved_at": now.isoformat(),
+        "approved_by": controller,
+    }
 
 
 @router.post("/blocks/{block_id}/approval")
@@ -913,6 +1096,13 @@ def update_block_approval(
     act = req.action.lower().strip()
     if act == "approve":
         block.approval_status = "approved"
+        block.execution_status = "approved"
+        # Update member tasks to "Scheduled"
+        gbt_rows = db.query(GeneratedBlockTask).filter(GeneratedBlockTask.block_id == block.id).all()
+        for gbt in gbt_rows:
+            task = db.query(MaintenanceTask).filter(MaintenanceTask.id == gbt.task_id).first()
+            if task:
+                task.status = "Scheduled"
     elif act == "modify":
         block.approval_status = "modified"
     elif act == "reject":

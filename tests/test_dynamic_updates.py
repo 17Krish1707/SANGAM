@@ -82,6 +82,7 @@ def test_train_delay_dynamic_impact_update():
         assert impact_after["impact_tier"] in ("amber", "red")
     finally:
         db.query(TrainMovement).filter(TrainMovement.id == "train-dynamic-1").delete()
+        db.query(RailwaySection).filter(RailwaySection.id == sec_id).delete()
         db.commit()
         db.close()
 

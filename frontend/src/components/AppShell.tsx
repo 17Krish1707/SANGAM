@@ -5,9 +5,7 @@ import {
   Wrench,
   Train,
   Calendar,
-  AlertTriangle,
   RotateCcw,
-  GitCompare,
   CheckSquare,
   FileText,
   Database,
@@ -38,7 +36,7 @@ const NAV_SECTIONS: NavCategory[] = [
     ],
   },
   {
-    title: 'PLANNING INPUTS',
+    title: 'PLANNING',
     items: [
       {
         label: 'Maintenance Work',
@@ -46,34 +44,29 @@ const NAV_SECTIONS: NavCategory[] = [
         to: '/maintenance',
       },
       {
-        label: 'Train & Corridor Data',
+        label: 'Corridor & Trains',
         icon: <Train className="w-4 h-4" />,
         to: '/corridor-data',
       },
-      {
-        label: 'Resources',
-        icon: <CheckSquare className="w-4 h-4" />,
-        to: '/resources',
-      },
-    ],
-  },
-  {
-    title: 'BLOCK PLANNING',
-    items: [
       {
         label: 'Create Block Plan',
         icon: <Calendar className="w-4 h-4" />,
         to: '/planning/create',
       },
+    ],
+  },
+  {
+    title: 'RESULTS',
+    items: [
       {
-        label: 'Proposed Plan',
+        label: 'Proposed Plans',
         icon: <Clock className="w-4 h-4" />,
         to: '/planning/proposed',
       },
       {
-        label: 'Compare Plans',
-        icon: <GitCompare className="w-4 h-4" />,
-        to: '/planning/compare',
+        label: 'Approved Blocks',
+        icon: <CheckSquare className="w-4 h-4" />,
+        to: '/operations/approved',
       },
     ],
   },
@@ -81,44 +74,24 @@ const NAV_SECTIONS: NavCategory[] = [
     title: 'OPERATIONS',
     items: [
       {
-        label: 'Conflicts & Exceptions',
-        icon: <AlertTriangle className="w-4 h-4" />,
-        to: '/operations/conflicts',
-      },
-      {
-        label: 'Approved Blocks',
-        icon: <CheckSquare className="w-4 h-4" />,
-        to: '/operations/approved',
-      },
-      {
-        label: 'Operational Re-plan',
+        label: 'Conflicts / Re-plan',
         icon: <RotateCcw className="w-4 h-4" />,
         to: '/operations/replan',
       },
     ],
   },
   {
-    title: 'ADMIN / DATA',
+    title: 'ADMIN',
     items: [
-      {
-        label: 'Data Sources',
-        icon: <Database className="w-4 h-4" />,
-        to: '/data-sources',
-      },
       {
         label: 'Planning Rules',
         icon: <FileText className="w-4 h-4" />,
         to: '/rules',
       },
-    ],
-  },
-  {
-    title: 'REPORTS',
-    items: [
       {
-        label: 'Sanction Reports',
-        icon: <FileText className="w-4 h-4" />,
-        to: '/reports',
+        label: 'Data Sources',
+        icon: <Database className="w-4 h-4" />,
+        to: '/data-sources',
       },
     ],
   },

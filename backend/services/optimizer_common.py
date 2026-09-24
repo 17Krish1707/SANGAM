@@ -32,20 +32,27 @@ def prepare_optimization_input(
     start_date: datetime,
     end_date: datetime,
     horizon: str = "weekly",
+    task_ids: Optional[List[str]] = None,
 ) -> OptimizationInputBundle:
     """
     Prepare canonical input bundle for baseline schedulers and CP-SAT optimizer.
     """
-    # 1. Fetch eligible tasks (Pending or Ready for Planning) on the given sections within the horizon
-    tasks = (
-        db.query(MaintenanceTask)
-        .filter(
-            MaintenanceTask.section_id.in_(section_ids),
-            MaintenanceTask.status.in_(["Pending", "Ready for Planning"]),
-            MaintenanceTask.due_date <= end_date,
+    # 1. Fetch eligible tasks (Pending or Ready for Planning) on the given sections
+    if task_ids:
+        tasks = (
+            db.query(MaintenanceTask)
+            .filter(MaintenanceTask.id.in_(task_ids))
+            .all()
         )
-        .all()
-    )
+    else:
+        tasks = (
+            db.query(MaintenanceTask)
+            .filter(
+                MaintenanceTask.section_id.in_(section_ids),
+                MaintenanceTask.status.in_(["Pending", "Ready for Planning", "New"]),
+            )
+            .all()
+        )
 
     # Ensure all tasks have priority scores
     for t in tasks:

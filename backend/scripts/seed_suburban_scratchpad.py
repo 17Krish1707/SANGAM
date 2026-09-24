@@ -137,74 +137,75 @@ def seed_suburban_scratchpad(db=None):
 
         # 3. 10 Railway Assets distributed across corridor with explicit spatial references
         assets = [
-            # Engineering Track Spans
+            # Dadar–Matunga assets
             Asset(
                 section_id=sec_dm.id, department_id=eng_dept.id, asset_type="Track Section", health_state="Degraded",
                 notes="Track Section DM-01 (Continuous Welded Rail)", track_line="UP",
-                start_location_ref="KM 0.2", end_location_ref="KM 1.4", chainage_start_km=0.2, chainage_end_km=1.4
+                start_location_ref="KM 0.4", end_location_ref="KM 1.2", chainage_start_km=0.4, chainage_end_km=1.2
             ),
             Asset(
-                section_id=sec_dm.id, department_id=eng_dept.id, asset_type="Turnout", health_state="Good",
-                notes="Turnout DM-02 (Crossover 101B)", track_line="BOTH",
-                start_location_ref="KM 1.2", end_location_ref="KM 1.6", chainage_start_km=1.2, chainage_end_km=1.6
+                section_id=sec_dm.id, department_id=snt_dept.id, asset_type="Signal", health_state="Good",
+                notes="Signal S101 Interlocking Span", track_line="UP",
+                start_location_ref="Signal S101", end_location_ref="Signal S102", chainage_start_km=0.8, chainage_end_km=1.3
             ),
             Asset(
-                section_id=sec_ms.id, department_id=eng_dept.id, asset_type="Track Section", health_state="Good",
-                notes="Track Section MS-01", track_line="UP",
-                start_location_ref="KM 0.5", end_location_ref="KM 1.8", chainage_start_km=0.5, chainage_end_km=1.8
+                section_id=sec_dm.id, department_id=trd_dept.id, asset_type="OHE Mast", health_state="Good",
+                notes="OHE Mast M12 to M18 Span", track_line="UP",
+                start_location_ref="Mast M12", end_location_ref="Mast M18", chainage_start_km=0.7, chainage_end_km=1.5
             ),
+            # Matunga–Sion assets
+            Asset(
+                section_id=sec_ms.id, department_id=eng_dept.id, asset_type="Track Section", health_state="Degraded",
+                notes="Rail Joint DM/MS Track Section", track_line="DOWN",
+                start_location_ref="KM 2.0", end_location_ref="KM 2.8", chainage_start_km=2.0, chainage_end_km=2.8
+            ),
+            Asset(
+                section_id=sec_ms.id, department_id=snt_dept.id, asset_type="Point Machine", health_state="Good",
+                notes="Point Machine PM-102 on DOWN track", track_line="DOWN",
+                start_location_ref="Point 102", end_location_ref="Signal S104", chainage_start_km=2.2, chainage_end_km=2.5
+            ),
+            # Kurla–Ghatkopar assets
+            Asset(
+                section_id=sec_kg.id, department_id=eng_dept.id, asset_type="Track Section", health_state="Good",
+                notes="Track Section KG Geometry Alignment", track_line="UP",
+                start_location_ref="KM 7.5", end_location_ref="KM 8.6", chainage_start_km=7.5, chainage_end_km=8.6
+            ),
+            Asset(
+                section_id=sec_kg.id, department_id=trd_dept.id, asset_type="OHE Mast", health_state="Good",
+                notes="OHE Section KG M18 to M32", track_line="UP",
+                start_location_ref="Mast M18", end_location_ref="Mast M32", chainage_start_km=7.8, chainage_end_km=8.8
+            ),
+            # Sion–Kurla & Ghatkopar–Vikhroli additional assets
             Asset(
                 section_id=sec_sk.id, department_id=eng_dept.id, asset_type="Track Section", health_state="Good",
                 notes="Track Section SK-01", track_line="UP",
                 start_location_ref="KM 0.8", end_location_ref="KM 2.0", chainage_start_km=0.8, chainage_end_km=2.0
             ),
             Asset(
-                section_id=sec_sk.id, department_id=eng_dept.id, asset_type="Turnout", health_state="Degraded",
-                notes="Turnout SK-02", track_line="UP",
-                start_location_ref="KM 1.6", end_location_ref="KM 2.1", chainage_start_km=1.6, chainage_end_km=2.1
-            ),
-            # TRD OHE Mast Spans
-            Asset(
-                section_id=sec_kg.id, department_id=trd_dept.id, asset_type="OHE Mast", health_state="Good",
-                notes="OHE Mast KG-M12 to KG-M24", track_line="UP",
-                start_location_ref="Mast M-12", end_location_ref="Mast M-24", chainage_start_km=0.6, chainage_end_km=1.5
-            ),
-            Asset(
-                section_id=sec_kg.id, department_id=trd_dept.id, asset_type="Contact Wire", health_state="Critical",
-                notes="Contact Wire KG-CW02 Tension Length", track_line="UP",
-                start_location_ref="Mast M-18", end_location_ref="Mast M-32", chainage_start_km=0.9, chainage_end_km=1.8
+                section_id=sec_sk.id, department_id=snt_dept.id, asset_type="Signal", health_state="Good",
+                notes="Signal SK-S01 to SK-S02 Block", track_line="UP",
+                start_location_ref="Signal S-101", end_location_ref="Signal S-102", chainage_start_km=0.9, chainage_end_km=1.7
             ),
             Asset(
                 section_id=sec_gv.id, department_id=trd_dept.id, asset_type="OHE Mast", health_state="Good",
                 notes="OHE Mast GV-M01 to GV-M15", track_line="UP",
                 start_location_ref="Mast M-01", end_location_ref="Mast M-15", chainage_start_km=0.1, chainage_end_km=0.9
             ),
-            # S&T Signal and Point Machine Spans
-            Asset(
-                section_id=sec_sk.id, department_id=snt_dept.id, asset_type="Signal", health_state="Good",
-                notes="Signal SK-S01 to SK-S02 Block", track_line="UP",
-                start_location_ref="Signal S-101", end_location_ref="Signal S-102", chainage_start_km=0.9, chainage_end_km=1.7
-            ),
-            Asset(
-                section_id=sec_kg.id, department_id=snt_dept.id, asset_type="Point Machine", health_state="Degraded",
-                notes="Point Machine KG-P01 (Dual-Control)", track_line="UP",
-                start_location_ref="Signal S-204", end_location_ref="Point 104A", chainage_start_km=0.8, chainage_end_km=1.4
-            ),
         ]
         db.add_all(assets)
         db.flush()
 
         # Map assets for task assignment
-        asset_dm_01 = assets[0]
-        asset_dm_02 = assets[1]
-        asset_ms_01 = assets[2]
-        asset_sk_01 = assets[3]
-        asset_sk_02 = assets[4]
-        asset_kg_01 = assets[5]
-        asset_kg_02 = assets[6]
-        asset_gv_01 = assets[7]
+        asset_dm_eng = assets[0]
+        asset_dm_snt = assets[1]
+        asset_dm_trd = assets[2]
+        asset_ms_eng = assets[3]
+        asset_ms_snt = assets[4]
+        asset_kg_eng = assets[5]
+        asset_kg_trd = assets[6]
+        asset_sk_01 = assets[7]
         asset_sk_s01 = assets[8]
-        asset_kg_p01 = assets[9]
+        asset_gv_01 = assets[9]
 
         # 4. 7 Resources (Constrained to create visible contention)
         # Engineering

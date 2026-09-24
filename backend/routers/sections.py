@@ -230,12 +230,31 @@ def get_corridor_infrastructure(
     # Filter by station range if requested
     matched_sections = []
     if from_station and to_station:
-        # Check direct or ordered chain
-        matched_sections = [
-            s for s in all_sections 
-            if (s.from_station.lower() == from_station.lower() and s.to_station.lower() == to_station.lower()) or
-               (from_station.lower() in s.from_station.lower() or to_station.lower() in s.to_station.lower())
-        ]
+        from_st = from_station.strip().lower()
+        to_st = to_station.strip().lower()
+        
+        # Build contiguous chain from from_station to to_station
+        sec_by_from = {s.from_station.strip().lower(): s for s in all_sections}
+        curr = from_st
+        path = []
+        visited = set()
+        while curr and curr != to_st and curr not in visited:
+            visited.add(curr)
+            sec = sec_by_from.get(curr)
+            if not sec:
+                break
+            path.append(sec)
+            curr = sec.to_station.strip().lower()
+
+        if curr == to_st and path:
+            matched_sections = path
+        else:
+            # Check single section or contains match
+            matched_sections = [
+                s for s in all_sections 
+                if (s.from_station.lower() == from_st and s.to_station.lower() == to_st) or
+                   (from_st in s.from_station.lower() and to_st in s.to_station.lower())
+            ]
     if not matched_sections:
         matched_sections = all_sections
 
