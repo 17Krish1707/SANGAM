@@ -681,7 +681,26 @@ export default function MaintenanceWork() {
                     </p>
                   </div>
 
+                  {/* Railway Location & Track Block Details */}
                   <div className="p-3 bg-panel border border-border rounded grid grid-cols-2 gap-2 text-[11px]">
+                    <div>
+                      <span className="text-text-secondary">Track Line:</span>{' '}
+                      <strong className="text-text-primary font-mono">{activeTask.track_line || 'UP Line'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-text-secondary">Chainage KM:</span>{' '}
+                      <strong className="text-text-primary font-mono">
+                        {activeTask.chainage_from_km != null ? `KM ${activeTask.chainage_from_km} – ${activeTask.chainage_to_km}` : 'Full Section'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-text-secondary">Block Type:</span>{' '}
+                      <strong className="text-text-primary">{activeTask.block_type_required || 'Traffic Block'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-text-secondary">Signal Disconnection:</span>{' '}
+                      <strong className="text-text-primary">{activeTask.requires_signal_disconnection ? 'Yes (S&T Required)' : 'No'}</strong>
+                    </div>
                     <div>
                       <span className="text-text-secondary">Requires Power Cut:</span>{' '}
                       <strong className="text-text-primary">{activeTask.requires_power_isolation ? 'Yes (OHE 25kV)' : 'No'}</strong>
@@ -722,37 +741,78 @@ export default function MaintenanceWork() {
               {drawerTab === 'planning' && (
                 <div className="space-y-4">
                   {/* Priority Summary */}
-                  <div className="bg-panel p-3 rounded-lg border border-border flex items-center justify-between">
+                  <div className="bg-panel p-3.5 rounded-lg border border-border flex items-center justify-between">
                     <div>
-                      <div className="text-[11px] text-text-secondary">Priority Score (0–100)</div>
-                      <div className="text-2xl font-black text-accent font-mono mt-0.5">
-                        {activeTask.priority_score ? activeTask.priority_score.toFixed(1) : '50.0'}
+                      <div className="text-[11px] text-text-secondary font-medium">Railway Priority Score</div>
+                      <div className="flex items-baseline gap-2 mt-0.5">
+                        <span className="text-3xl font-black text-accent font-mono">
+                          {activeTask.priority_score ? activeTask.priority_score.toFixed(1) : '50.0'}
+                        </span>
+                        <span className="text-text-secondary text-xs font-mono">/ 100</span>
+                        <span className={`px-2 py-0.5 rounded text-2xs font-bold uppercase tracking-wider ${
+                          activeTask.severity === 'Critical' ? 'bg-red-100 text-red-800' :
+                          activeTask.severity === 'High' ? 'bg-amber-100 text-amber-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          {activeTask.severity}
+                        </span>
                       </div>
                     </div>
 
                     <button
                       onClick={() => setShowPriorityExplainer(!showPriorityExplainer)}
-                      className="px-3 py-1.5 rounded border border-border bg-white font-semibold text-xs hover:bg-slate-50 flex items-center gap-1 cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg border border-border bg-white font-semibold text-xs hover:bg-slate-50 flex items-center gap-1.5 shadow-xs cursor-pointer"
                     >
-                      <span>How was priority calculated?</span>
+                      <span>Why this priority?</span>
                       {showPriorityExplainer ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                     </button>
                   </div>
 
                   {/* Priority Explainer Drawer */}
                   {showPriorityExplainer && taskDetail?.priority_breakdown && (
-                    <div className="p-3 rounded border border-accent/30 bg-accent-tint/10 space-y-2 text-xs">
-                      <div className="font-bold text-accent text-2xs uppercase tracking-wider font-mono">
-                        RDSO Multi-Factor Priority Breakdown
+                    <div className="p-3.5 rounded-lg border border-blue-200 bg-blue-50/50 space-y-3 text-xs">
+                      <div className="flex items-center justify-between border-b border-blue-100 pb-2">
+                        <span className="font-bold text-[#173F7A] text-2xs uppercase tracking-wider font-mono">
+                          Explainable Multi-Factor Scoring
+                        </span>
+                        <span className="text-[10px] text-text-secondary font-mono">
+                          Score = Σ contributions
+                        </span>
                       </div>
-                      {Object.entries(taskDetail.priority_breakdown.components).map(([factor, item]: any) => (
-                        <div key={factor} className="flex items-center justify-between text-[11px]">
-                          <span className="text-text-secondary capitalize">{factor.replace(/_/g, ' ')}:</span>
-                          <span className="font-mono font-bold text-text-primary">
-                            +{item.contribution} pts ({item.detail})
-                          </span>
+
+                      {/* Plain-English Explanation */}
+                      {taskDetail.priority_breakdown.explanation_text && (
+                        <div className="p-2.5 rounded bg-white border border-blue-200 text-xs text-text-primary italic leading-relaxed">
+                          "{taskDetail.priority_breakdown.explanation_text}"
                         </div>
-                      ))}
+                      )}
+
+                      {/* Component breakdown bars */}
+                      <div className="space-y-2 pt-1">
+                        {Object.entries(taskDetail.priority_breakdown.components).map(([factor, item]: any) => {
+                          const maxWeight = (item.weight || 0.2) * 100;
+                          const pct = Math.min(100, Math.max(0, (item.contribution / maxWeight) * 100));
+                          return (
+                            <div key={factor} className="space-y-1">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="font-medium text-text-primary capitalize">{item.label || factor.replace(/_/g, ' ')}</span>
+                                <span className="font-mono font-bold text-[#173F7A]">
+                                  +{item.contribution.toFixed(1)} pts
+                                </span>
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-[#173F7A] rounded-full transition-all"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <div className="text-[10px] text-text-secondary">
+                                {item.detail} (Weight: {(item.weight * 100).toFixed(0)}%)
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 

@@ -18,6 +18,16 @@ class MaintenanceTaskBase(BaseModel):
     can_run_parallel: bool = False
     status: str = "Pending"  # Pending | Scheduled | Completed | Deferred
     priority_score: Optional[float] = None
+    track_line: str = "UP"  # UP | DOWN | BOTH
+    chainage_from_km: Optional[float] = None
+    chainage_to_km: Optional[float] = None
+    block_type_required: str = "Traffic Block"
+    requires_traffic_block: bool = True
+    requires_signal_disconnection: bool = False
+    is_joint_block_eligible: bool = True
+    required_crew: Optional[str] = None
+    required_equipment: Optional[str] = None
+    predecessor_task_id: Optional[str] = None
 
 
 class MaintenanceTaskCreate(MaintenanceTaskBase):

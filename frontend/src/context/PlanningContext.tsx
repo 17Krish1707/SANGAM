@@ -61,6 +61,7 @@ interface PlanningContextType {
   // Actions
   triggerGenerate: (profile?: ObjectiveProfile) => Promise<void>;
   refreshAll: () => Promise<void>;
+  loadSpecificPlan: (runId: string) => Promise<void>;
 }
 
 const PlanningContext = createContext<PlanningContextType | undefined>(undefined);
@@ -263,6 +264,19 @@ export function PlanningProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loadSpecificPlan = useCallback(async (runId: string) => {
+    setIsLoadingPlan(true);
+    try {
+      setActiveRunId(runId);
+      const plan = await getPlan(runId);
+      setActivePlan(plan);
+    } catch (err) {
+      console.error('Failed to load specific plan:', err);
+    } finally {
+      setIsLoadingPlan(false);
+    }
+  }, []);
+
   const refreshAll = async () => {
     await loadInitial();
   };
@@ -302,6 +316,7 @@ export function PlanningProvider({ children }: { children: React.ReactNode }) {
         getStageStatus,
         triggerGenerate,
         refreshAll,
+        loadSpecificPlan,
       }}
     >
       {children}

@@ -36,15 +36,15 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
   onSelectBlock,
   baseDate = '2026-09-08',
 }) => {
-  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
   const [hoveredBlock, setHoveredBlock] = useState<GeneratedBlock | null>(null);
   const [hoveredTrain, setHoveredTrain] = useState<TrainHoverInfo | null>(null);
   const [blockTooltipPos, setBlockTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Time calculations
-  const totalHours = viewMode === 'day' ? 24 : 7 * 24;
-  const hourWidth = viewMode === 'day' ? 65 : 25; // px per hour
+  const totalHours = viewMode === 'day' ? 24 : viewMode === 'week' ? 7 * 24 : 30 * 24;
+  const hourWidth = viewMode === 'day' ? 65 : viewMode === 'week' ? 25 : 8; // px per hour
   const totalTimelineWidth = totalHours * hourWidth;
 
   const getLeftAndWidth = (startStr: string, endStr: string) => {
@@ -69,6 +69,11 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
     const dayStr = d.toLocaleDateString('en-GB', { weekday: 'short' });
     const numStr = d.getDate().toString().padStart(2, '0');
     return `${dayStr} ${numStr}`;
+  });
+  const monthDays = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(`${baseDate}T00:00:00`);
+    d.setDate(d.getDate() + i);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
   });
 
   // Global Conflict calculation across all visible sections
@@ -142,7 +147,15 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                 viewMode === 'week' ? 'bg-white text-[#173F7A] shadow-xs font-bold' : 'text-[#667085] hover:text-[#172033]'
               }`}
             >
-              Weekly Overview
+              7-Day Weekly
+            </button>
+            <button
+              onClick={() => setViewMode('month')}
+              className={`px-3 py-1 rounded-md transition-all ${
+                viewMode === 'month' ? 'bg-white text-[#173F7A] shadow-xs font-bold' : 'text-[#667085] hover:text-[#172033]'
+              }`}
+            >
+              30-Day Monthly
             </button>
           </div>
 
@@ -244,7 +257,7 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                     <span>{String(h).padStart(2, '0')}:00</span>
                   </div>
                 ))
-              ) : (
+              ) : viewMode === 'week' ? (
                 weekDays.map((day, idx) => (
                   <div
                     key={idx}
@@ -258,6 +271,16 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                       <span>12</span>
                       <span>18</span>
                     </div>
+                  </div>
+                ))
+              ) : (
+                monthDays.map((day, idx) => (
+                  <div
+                    key={idx}
+                    style={{ width: `${24 * hourWidth}px` }}
+                    className="flex-shrink-0 border-r border-slate-200 flex flex-col justify-between p-0.5 bg-slate-50/50"
+                  >
+                    <span className="font-bold text-[#172033] text-[9px] truncate">{day}</span>
                   </div>
                 ))
               )}
@@ -321,11 +344,19 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                                 className="flex-shrink-0 border-r border-slate-100 h-full"
                               />
                             ))
-                          : weekDays.map((_, idx) => (
+                          : viewMode === 'week'
+                          ? weekDays.map((_, idx) => (
                               <div
                                 key={idx}
                                 style={{ width: `${24 * hourWidth}px` }}
                                 className="flex-shrink-0 border-r-2 border-slate-200 h-full"
+                              />
+                            ))
+                          : monthDays.map((_, idx) => (
+                              <div
+                                key={idx}
+                                style={{ width: `${24 * hourWidth}px` }}
+                                className="flex-shrink-0 border-r border-slate-100 h-full"
                               />
                             ))}
                       </div>
@@ -713,6 +744,19 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
           <div className="text-[10px] text-slate-400">
             <strong>Tasks Included:</strong> {hoveredBlock.tasks?.length || 0} maintenance jobs
           </div>
+
+          {hoveredBlock.why_together && (
+            <div className="text-[10px] text-emerald-300 italic pt-1 border-t border-slate-700 bg-emerald-950/40 p-1.5 rounded">
+              "{hoveredBlock.why_together}"
+            </div>
+          )}
+
+          {hoveredBlock.train_impact && (
+            <div className="text-[10px] text-amber-200 bg-amber-950/40 p-1.5 rounded flex items-center justify-between">
+              <span>Trains: {hoveredBlock.train_impact.directly_affected_count} affected</span>
+              <span className="font-mono font-bold">Margin: {hoveredBlock.train_impact.min_train_margin_min}m</span>
+            </div>
+          )}
 
           <div className="text-[9px] text-sky-400 pt-1 border-t border-slate-700">
             Click block to open Operational Inspector

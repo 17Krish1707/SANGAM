@@ -23,6 +23,16 @@ class MaintenanceTask(Base):
     can_run_parallel = Column(Boolean, nullable=False, default=False)
     status = Column(String(40), nullable=False, default="Pending", index=True)  # New | Pending | Ready for Planning | Scheduled | Approved | Completed | Deferred
     priority_score = Column(Float, nullable=True, index=True)
+    track_line = Column(String(20), nullable=False, default="UP")  # UP | DOWN | BOTH
+    chainage_from_km = Column(Float, nullable=True)
+    chainage_to_km = Column(Float, nullable=True)
+    block_type_required = Column(String(50), nullable=False, default="Traffic Block")  # Traffic Block | Power Block | S&T Disconnection | Integrated Block
+    requires_traffic_block = Column(Boolean, nullable=False, default=True)
+    requires_signal_disconnection = Column(Boolean, nullable=False, default=False)
+    is_joint_block_eligible = Column(Boolean, nullable=False, default=True)
+    required_crew = Column(String(100), nullable=True)
+    required_equipment = Column(String(100), nullable=True)
+    predecessor_task_id = Column(GUID, ForeignKey("maintenance_tasks.id", ondelete="SET NULL"), nullable=True)
     description = Column(String(500), nullable=True)
     operational_notes = Column(String(500), nullable=True)
     source = Column(String(50), nullable=False, default="Synthetic Demo")  # Manual | CSV Import | Synthetic Demo | API

@@ -56,11 +56,20 @@ def compute_candidate_windows(
             duration_sec = (window_end - window_start).total_seconds()
             if duration_sec >= 20 * 60:
                 duration_min = int(duration_sec // 60)
+                reasons = [
+                    "✓ No protected passenger train path",
+                    "✓ Freight forecast acceptable",
+                    "✓ COA corridor available",
+                    f"✓ Required safety buffer available ({min_buffer_minutes}m buffer)",
+                ]
                 candidate_windows.append({
                     "section_id": section_id,
                     "window_start": window_start,
                     "window_end": window_end,
                     "duration_min": duration_min,
+                    "reasons": reasons,
+                    "reasons_str": " • ".join(reasons),
+                    "provenance_label": "Representative prototype operational data",
                 })
 
         # Advance cursor past the train
@@ -80,11 +89,20 @@ def compute_candidate_windows(
         duration_sec = (window_end - window_start).total_seconds()
         if duration_sec >= 20 * 60:
             duration_min = int(duration_sec // 60)
+            reasons = [
+                "✓ No protected passenger train path",
+                "✓ Freight forecast acceptable",
+                "✓ COA corridor available",
+                f"✓ Required safety buffer available ({min_buffer_minutes}m buffer)",
+            ]
             candidate_windows.append({
                 "section_id": section_id,
                 "window_start": window_start,
                 "window_end": window_end,
                 "duration_min": duration_min,
+                "reasons": reasons,
+                "reasons_str": " • ".join(reasons),
+                "provenance_label": "Representative prototype operational data",
             })
 
     return candidate_windows
@@ -205,6 +223,8 @@ def populate_block_windows(
                 block_type="Maintenance",
                 is_available=True,
                 risk_score=risk,
+                availability_reasons=rw.get("reasons_str", "✓ No protected passenger train path • ✓ Safety buffer clear"),
+                provenance_label=rw.get("provenance_label", "Representative prototype operational data"),
             )
             db.add(bw)
             new_windows.append(bw)

@@ -16,6 +16,8 @@ class BlockWindow(Base):
     unavailability_reason = Column(String(255), nullable=True)  # Operational restriction, VIP train, Weather, etc.
     source = Column(String(50), nullable=False, default="Computed Gap")  # Computed Gap | Manual | COA
     risk_score = Column(Float, nullable=True)
+    availability_reasons = Column(String(500), nullable=True)
+    provenance_label = Column(String(100), nullable=False, default="Representative prototype operational data")
 
     section = relationship("RailwaySection", back_populates="block_windows")
 

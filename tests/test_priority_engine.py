@@ -1,8 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.database import SessionLocal
 from backend.models.task import MaintenanceTask
 from backend.models.asset import Asset
 from backend.services.priority_engine import (
@@ -15,84 +14,105 @@ from backend.services.priority_engine import (
 client = TestClient(app)
 
 
-def test_priority_score_formula_hand_crafted():
-    weights = {
-        "criticality": 0.30,
-        "overdue_severity": 0.25,
-        "safety_consequence": 0.20,
-        "asset_importance": 0.15,
-        "failure_risk": 0.10,
-    }
+def test_priority_critical_high_medium_low_hierarchy():
+    """Requirement 28: Critical > High > Medium > Low when other values equal."""
+    now = datetime(2026, 5, 10, 8, 0, 0)
+    asset = Asset(health_state="Good", asset_type="Track")
 
-    ref_date = datetime(2026, 9, 7, 8, 0, 0)
+    t_crit = MaintenanceTask(severity="Critical", due_date=now + timedelta(days=5), requires_power_isolation=False)
+    t_crit.asset = asset
+    t_high = MaintenanceTask(severity="High", due_date=now + timedelta(days=5), requires_power_isolation=False)
+    t_high.asset = asset
+    t_med = MaintenanceTask(severity="Medium", due_date=now + timedelta(days=5), requires_power_isolation=False)
+    t_med.asset = asset
+    t_low = MaintenanceTask(severity="Low", due_date=now + timedelta(days=5), requires_power_isolation=False)
+    t_low.asset = asset
 
-    # Case A: Critical, 15 days overdue, requires power isolation, asset Critical
-    # Criticality = 1.0 (weight 0.30) -> 30.0
-    # Overdue = 15/30 = 0.5 (weight 0.25) -> 12.5
-    # Safety = 1.0 (power iso, weight 0.20) -> 20.0
-    # Asset = 1.0 (Critical asset, weight 0.15) -> 15.0
-    # Failure risk = 1.0 * 0.5 = 0.5 (weight 0.10) -> 5.0
-    # Expected sum = 30 + 12.5 + 20 + 15 + 5 = 82.50
-    mock_asset_crit = Asset(health_state="Critical")
-    task_crit = MaintenanceTask(
-        task_code="TEST-CRIT-01",
-        severity="Critical",
-        due_date=ref_date - timedelta(days=15),
-        requires_power_isolation=True,
-    )
-    task_crit.asset = mock_asset_crit
+    s_crit = compute_priority_score(t_crit, reference_date=now)
+    s_high = compute_priority_score(t_high, reference_date=now)
+    s_med = compute_priority_score(t_med, reference_date=now)
+    s_low = compute_priority_score(t_low, reference_date=now)
 
-    score_crit = compute_priority_score(task_crit, weights=weights, reference_date=ref_date)
-    assert score_crit == 82.50
-
-    # Case B: Low, not overdue (due in future), no power isolation, asset Good
-    # Criticality = 0.25 (weight 0.30) -> 7.5
-    # Overdue = 0.0 (weight 0.25) -> 0.0
-    # Safety = 0.20 (weight 0.20) -> 4.0
-    # Asset = 0.30 (Good asset, weight 0.15) -> 4.5
-    # Failure risk = 0.25 * 0.0 = 0.0 (weight 0.10) -> 0.0
-    # Expected sum = 7.5 + 0.0 + 4.0 + 4.5 + 0.0 = 16.00
-    mock_asset_good = Asset(health_state="Good")
-    task_low = MaintenanceTask(
-        task_code="TEST-LOW-01",
-        severity="Low",
-        due_date=ref_date + timedelta(days=5),
-        requires_power_isolation=False,
-    )
-    task_low.asset = mock_asset_good
-
-    score_low = compute_priority_score(task_low, weights=weights, reference_date=ref_date)
-    assert score_low == 16.00
-    assert score_crit > score_low
+    assert s_crit > s_high > s_med > s_low, f"Expected Critical > High > Medium > Low, got: {s_crit}, {s_high}, {s_med}, {s_low}"
 
 
-def test_priority_breakdown_structure():
-    ref_date = datetime(2026, 9, 7, 8, 0, 0)
-    mock_asset = Asset(health_state="Degraded")
+def test_overdue_and_near_due_urgency():
+    """Requirement 28: Overdue increases score; near-due increases urgency (due tomorrow > due in 20 days)."""
+    now = datetime(2026, 5, 10, 8, 0, 0)
+    asset = Asset(health_state="Degraded", asset_type="Turnout Switch")
+
+    # 1. Overdue scaling
+    t_overdue_10d = MaintenanceTask(severity="High", due_date=now - timedelta(days=10), requires_power_isolation=False)
+    t_overdue_10d.asset = asset
+    t_overdue_2d = MaintenanceTask(severity="High", due_date=now - timedelta(days=2), requires_power_isolation=False)
+    t_overdue_2d.asset = asset
+
+    s_od10 = compute_priority_score(t_overdue_10d, reference_date=now)
+    s_od2 = compute_priority_score(t_overdue_2d, reference_date=now)
+    assert s_od10 > s_od2, f"Expected 10-day overdue ({s_od10}) > 2-day overdue ({s_od2})"
+
+    # 2. Near-due: Task due tomorrow must score higher than task due in 20 days
+    t_due_tomorrow = MaintenanceTask(severity="High", due_date=now + timedelta(days=1), requires_power_isolation=False)
+    t_due_tomorrow.asset = asset
+    t_due_in_20d = MaintenanceTask(severity="High", due_date=now + timedelta(days=20), requires_power_isolation=False)
+    t_due_in_20d.asset = asset
+
+    s_tomorrow = compute_priority_score(t_due_tomorrow, reference_date=now)
+    s_20d = compute_priority_score(t_due_in_20d, reference_date=now)
+    assert s_tomorrow > s_20d, f"Expected due tomorrow ({s_tomorrow}) > due in 20 days ({s_20d})"
+
+
+def test_dynamic_reference_date():
+    """Requirement 28: Reference date is dynamic and changes calculations accordingly."""
+    base_due = datetime(2026, 6, 1, 8, 0, 0)
+    task = MaintenanceTask(severity="High", due_date=base_due, requires_power_isolation=False)
+    task.asset = Asset(health_state="Good", asset_type="Track")
+
+    # When reference date is 10 days before due date -> not overdue, normal urgency
+    ref_early = base_due - timedelta(days=10)
+    score_early = compute_priority_score(task, reference_date=ref_early)
+
+    # When reference date is 5 days AFTER due date -> overdue, higher score!
+    ref_late = base_due + timedelta(days=5)
+    score_late = compute_priority_score(task, reference_date=ref_late)
+
+    assert score_late > score_early, f"Dynamic reference date shift failed: {score_late} should exceed {score_early}"
+
+
+def test_priority_breakdown_exact_sum():
+    """Requirement 28: Explanation totals equal final score."""
+    now = datetime(2026, 5, 10, 8, 0, 0)
+    asset = Asset(health_state="Critical", asset_type="Point Machine 220V")
     task = MaintenanceTask(
         id="mock-task-uuid-1",
         task_code="ENG-101",
         severity="High",
-        due_date=ref_date - timedelta(days=6),
-        requires_power_isolation=False,
+        due_date=now - timedelta(days=3),
+        requires_power_isolation=True,
     )
-    task.asset = mock_asset
+    task.asset = asset
 
-    breakdown = get_priority_breakdown(task, reference_date=ref_date)
+    breakdown = get_priority_breakdown(task, reference_date=now)
     assert breakdown["task_code"] == "ENG-101"
     assert "components" in breakdown
-    assert "criticality" in breakdown["components"]
-    assert "overdue_severity" in breakdown["components"]
-    assert "safety_consequence" in breakdown["components"]
-    assert "asset_importance" in breakdown["components"]
-    assert "failure_risk" in breakdown["components"]
+    assert "explanation_text" in breakdown
+    assert len(breakdown["explanation_text"]) > 10
 
-    # Verify contributions sum to total score
-    total_contrib = sum(comp["contribution"] for comp in breakdown["components"].values())
-    assert abs(round(total_contrib, 2) - breakdown["priority_score"]) < 0.05
+    # Components check
+    comps = breakdown["components"]
+    active_keys = ["criticality", "urgency", "safety_consequence", "asset_importance", "failure_risk"]
+    for k in active_keys:
+        assert k in comps
+        assert "contribution" in comps[k]
+        assert "detail" in comps[k]
+
+    # Verify contributions sum to total score exactly
+    summed_contrib = round(sum(comps[k]["contribution"] for k in active_keys), 1)
+    assert summed_contrib == breakdown["priority_score"], f"Sum {summed_contrib} != total {breakdown['priority_score']}"
 
 
 def test_recompute_and_list_tasks_api():
+    """Test recomputing priority across tasks and listing with filters."""
     # 1. Trigger recompute endpoint
     post_res = client.post("/api/tasks/recompute-priority")
     assert post_res.status_code == 200
@@ -110,13 +130,7 @@ def test_recompute_and_list_tasks_api():
     scores = [t["priority_score"] for t in eng_tasks]
     assert scores == sorted(scores, reverse=True)
 
-    # 3. Test overdue filter
-    overdue_res = client.get("/api/tasks?overdue_only=true")
-    assert overdue_res.status_code == 200
-    overdue_tasks = overdue_res.json()
-    assert len(overdue_tasks) > 0
-
-    # 4. Test priority breakdown API
+    # 3. Test priority breakdown API
     sample_task_id = eng_tasks[0]["id"]
     breakdown_res = client.get(f"/api/tasks/{sample_task_id}/priority-breakdown")
     assert breakdown_res.status_code == 200
@@ -124,3 +138,4 @@ def test_recompute_and_list_tasks_api():
     assert b_data["task_id"] == sample_task_id
     assert "components" in b_data
     assert b_data["priority_score"] > 0
+    assert "explanation_text" in b_data

@@ -89,6 +89,9 @@ def list_tasks(
             "department_name": t.department.name if t.department else None,
             "section_id": str(t.section_id),
             "section_name": t.section.name if t.section else None,
+            "corridor_name": t.section.corridor_name if t.section else "Main Corridor",
+            "from_station": t.section.from_station if t.section else "",
+            "to_station": t.section.to_station if t.section else "",
             "asset_id": str(t.asset_id) if t.asset_id else None,
             "asset_name": t.asset.asset_type if t.asset else None,
             "maintenance_type": t.maintenance_type,
@@ -99,6 +102,16 @@ def list_tasks(
             "minimum_contiguous_block_min": t.minimum_contiguous_block_min,
             "requires_power_isolation": t.requires_power_isolation,
             "can_run_parallel": t.can_run_parallel,
+            "track_line": getattr(t, "track_line", "UP"),
+            "chainage_from_km": getattr(t, "chainage_from_km", None),
+            "chainage_to_km": getattr(t, "chainage_to_km", None),
+            "block_type_required": getattr(t, "block_type_required", "Traffic Block"),
+            "requires_traffic_block": getattr(t, "requires_traffic_block", True),
+            "requires_signal_disconnection": getattr(t, "requires_signal_disconnection", False),
+            "is_joint_block_eligible": getattr(t, "is_joint_block_eligible", True),
+            "required_crew": getattr(t, "required_crew", None),
+            "required_equipment": getattr(t, "required_equipment", None),
+            "predecessor_task_id": str(t.predecessor_task_id) if getattr(t, "predecessor_task_id", None) else None,
             "status": t.status,
             "priority_score": score,
             "description": getattr(t, "description", None),
@@ -341,6 +354,16 @@ class TaskCreateRequest(BaseModel):
     minimum_contiguous_block_min: Optional[int] = None
     requires_power_isolation: bool = False
     can_run_parallel: bool = False
+    track_line: str = "UP"  # UP | DOWN | BOTH
+    chainage_from_km: Optional[float] = None
+    chainage_to_km: Optional[float] = None
+    block_type_required: str = "Traffic Block"
+    requires_traffic_block: bool = True
+    requires_signal_disconnection: bool = False
+    is_joint_block_eligible: bool = True
+    required_crew: Optional[str] = None
+    required_equipment: Optional[str] = None
+    predecessor_task_id: Optional[str] = None
     crew_type: Optional[str] = None
     equipment: Optional[str] = None
     required_resource_ids: Optional[List[str]] = None
@@ -362,6 +385,16 @@ class TaskUpdateRequest(BaseModel):
     minimum_contiguous_block_min: Optional[int] = None
     requires_power_isolation: Optional[bool] = None
     can_run_parallel: Optional[bool] = None
+    track_line: Optional[str] = None
+    chainage_from_km: Optional[float] = None
+    chainage_to_km: Optional[float] = None
+    block_type_required: Optional[str] = None
+    requires_traffic_block: Optional[bool] = None
+    requires_signal_disconnection: Optional[bool] = None
+    is_joint_block_eligible: Optional[bool] = None
+    required_crew: Optional[str] = None
+    required_equipment: Optional[str] = None
+    predecessor_task_id: Optional[str] = None
     operational_notes: Optional[str] = None
     status: Optional[str] = None
 
@@ -471,6 +504,16 @@ def create_task(req: TaskCreateRequest, db: Session = Depends(get_db)):
         minimum_contiguous_block_min=min_block,
         requires_power_isolation=req.requires_power_isolation,
         can_run_parallel=req.can_run_parallel,
+        track_line=req.track_line,
+        chainage_from_km=req.chainage_from_km,
+        chainage_to_km=req.chainage_to_km,
+        block_type_required=req.block_type_required,
+        requires_traffic_block=req.requires_traffic_block,
+        requires_signal_disconnection=req.requires_signal_disconnection,
+        is_joint_block_eligible=req.is_joint_block_eligible,
+        required_crew=req.required_crew or req.crew_type,
+        required_equipment=req.required_equipment or req.equipment,
+        predecessor_task_id=req.predecessor_task_id,
         status=req.status,
         description=req.description,
         operational_notes=req.operational_notes,
@@ -527,6 +570,7 @@ def create_task(req: TaskCreateRequest, db: Session = Depends(get_db)):
 
 
 @router.put("/{task_id}")
+@router.patch("/{task_id}")
 def update_task(task_id: str, req: TaskUpdateRequest, db: Session = Depends(get_db)):
     """
     Update maintenance request fields and recompute priority score.
@@ -571,6 +615,26 @@ def update_task(task_id: str, req: TaskUpdateRequest, db: Session = Depends(get_
         task.requires_power_isolation = req.requires_power_isolation
     if req.can_run_parallel is not None:
         task.can_run_parallel = req.can_run_parallel
+    if req.track_line is not None:
+        task.track_line = req.track_line
+    if req.chainage_from_km is not None:
+        task.chainage_from_km = req.chainage_from_km
+    if req.chainage_to_km is not None:
+        task.chainage_to_km = req.chainage_to_km
+    if req.block_type_required is not None:
+        task.block_type_required = req.block_type_required
+    if req.requires_traffic_block is not None:
+        task.requires_traffic_block = req.requires_traffic_block
+    if req.requires_signal_disconnection is not None:
+        task.requires_signal_disconnection = req.requires_signal_disconnection
+    if req.is_joint_block_eligible is not None:
+        task.is_joint_block_eligible = req.is_joint_block_eligible
+    if req.required_crew is not None:
+        task.required_crew = req.required_crew
+    if req.required_equipment is not None:
+        task.required_equipment = req.required_equipment
+    if req.predecessor_task_id is not None:
+        task.predecessor_task_id = req.predecessor_task_id
     if req.operational_notes is not None:
         task.operational_notes = req.operational_notes
     if req.status is not None:

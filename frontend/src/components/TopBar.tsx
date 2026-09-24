@@ -11,7 +11,7 @@ interface TopBarProps {
 export default function TopBar({
   title = 'SANGAM Operations Workstation',
   subtitle,
-  showCorridorStrip = false,
+  showCorridorStrip = true,
 }: TopBarProps) {
   const {
     userRole,

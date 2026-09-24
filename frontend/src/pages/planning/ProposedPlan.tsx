@@ -13,10 +13,12 @@ import {
   approveAllCleanBlocks,
   getSections,
   getAllTrains,
+  getPlanAlternatives,
   type GeneratedBlock,
   type BlockValidationResult,
   type Section,
   type TimetableTrain,
+  type PlanAlternative,
 } from '../../lib/apiClient';
 import {
   Clock,
@@ -37,11 +39,15 @@ import {
 import { DepartmentCompatibilityMatrix } from '../../components/planning/DepartmentCompatibilityMatrix';
 
 export default function ProposedPlan() {
-  const { activePlan, refreshAll, userRole, setWorkflowStage, planningWeekStart } = usePlanning();
+  const { activePlan, refreshAll, userRole, setWorkflowStage, planningWeekStart, loadSpecificPlan, activeRunId } = usePlanning();
   const [selectedBlock, setSelectedBlock] = useState<GeneratedBlock | null>(null);
   const [sections, setSections] = useState<Section[]>([]);
   const [trains, setTrains] = useState<TimetableTrain[]>([]);
   const [activeView, setActiveView] = useState<'gantt' | 'compatibility'>('gantt');
+
+  // Plan Alternatives
+  const [alternatives, setAlternatives] = useState<PlanAlternative[]>([]);
+  const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
   // Modify Modal state
   const [modifyModalOpen, setModifyModalOpen] = useState(false);
@@ -54,6 +60,24 @@ export default function ProposedPlan() {
 
   // Action feedback
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activePlan?.run_id) return;
+    const fetchAlts = async () => {
+      setLoadingAlternatives(true);
+      try {
+        const res = await getPlanAlternatives(activePlan.run_id);
+        if (res && res.alternatives) {
+          setAlternatives(res.alternatives);
+        }
+      } catch (err) {
+        console.error('Failed to load plan alternatives:', err);
+      } finally {
+        setLoadingAlternatives(false);
+      }
+    };
+    fetchAlts();
+  }, [activePlan?.run_id]);
 
   useEffect(() => {
     setWorkflowStage(5);
@@ -253,6 +277,116 @@ export default function ProposedPlan() {
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-xs text-[#173F7A] font-medium animate-in fade-in">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             <span>{feedbackMsg}</span>
+          </div>
+        )}
+
+        {/* Plan Alternatives Comparison Section */}
+        {alternatives && alternatives.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-[#173F7A]" />
+                <h2 className="text-sm font-bold text-[#172033] uppercase tracking-wider font-mono">
+                  Schedule Options (Distinct Multi-Plan Alternatives)
+                </h2>
+                {loadingAlternatives && (
+                  <span className="text-xs text-[#5A6E85] animate-pulse">Loading...</span>
+                )}
+              </div>
+              <span className="text-[11px] text-[#5A6E85]">
+                CP-SAT generated distinct operational schedules via no-good cut constraints
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {alternatives.map((alt) => {
+                const isCurrentActive = (activeRunId || plan?.run_id) === alt.run_id;
+                const isRec = alt.is_recommended;
+                return (
+                  <div
+                    key={alt.run_id}
+                    className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+                      isCurrentActive
+                        ? 'bg-white border-[#173F7A] ring-2 ring-[#173F7A]/20 shadow-md'
+                        : 'bg-white/90 border-[#D9E1EA] hover:border-[#B4C6DC] shadow-xs'
+                    }`}
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-[#172033]">{alt.plan_label}</span>
+                          {isRec && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              Recommended
+                            </span>
+                          )}
+                        </div>
+                        {isCurrentActive && (
+                          <span className="text-[10px] font-mono font-bold text-[#173F7A] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                            Active on Gantt
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Train Impact Badge */}
+                      <div>
+                        <span
+                          className={`inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-md border ${
+                            alt.trains_affected_count === 0
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
+                              : alt.trains_affected_count <= 2
+                              ? 'bg-amber-50 text-amber-800 border-amber-300'
+                              : 'bg-red-50 text-red-800 border-red-300'
+                          }`}
+                        >
+                          {alt.train_impact_badge || (alt.trains_affected_count === 0 ? '✓ 0 trains require timetable change' : `⚠ ${alt.trains_affected_count} trains affected`)}
+                        </span>
+                      </div>
+
+                      {/* Recommendation Narrative */}
+                      <p className="text-xs text-[#5A6E85] leading-relaxed line-clamp-3">
+                        {alt.recommendation_explanation}
+                      </p>
+
+                      {/* Key Metrics Grid */}
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#EDF2F7] text-xs font-mono">
+                        <div>
+                          <span className="text-[10px] text-[#667085] block font-sans">Track Closure</span>
+                          <strong className="text-[#172033] font-bold">{alt.track_closure_hours} h</strong>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#667085] block font-sans">Critical Tasks</span>
+                          <strong className="text-[#173F7A] font-bold">{alt.critical_tasks_ratio}</strong>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#667085] block font-sans">Joint Blocks</span>
+                          <strong className="text-indigo-700 font-bold">{alt.joint_blocks_count} joint</strong>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[#667085] block font-sans">Train Clearance</span>
+                          <strong className="text-emerald-700 font-bold">{alt.min_train_margin_min}m margin</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="pt-3 mt-3 border-t border-[#EDF2F7] flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => loadSpecificPlan(alt.run_id)}
+                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          isCurrentActive
+                            ? 'bg-[#173F7A] text-white shadow-xs'
+                            : 'bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#172033]'
+                        }`}
+                      >
+                        {isCurrentActive ? 'Viewing on Gantt' : 'View on Gantt'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 

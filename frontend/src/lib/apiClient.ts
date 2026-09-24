@@ -163,6 +163,13 @@ export interface MaintenanceTask {
   priority_score: number;
   description?: string | null;
   operational_notes?: string | null;
+  track_line?: string | null;
+  chainage_from_km?: number | null;
+  chainage_to_km?: number | null;
+  block_type_required?: string | null;
+  requires_traffic_block?: boolean;
+  requires_signal_disconnection?: boolean;
+  is_joint_block_eligible?: boolean;
   source?: string;
   deferred_reason?: string | null;
   deferred_until?: string | null;
@@ -259,6 +266,11 @@ export interface BlockTask {
   priority_score: number;
   requires_power_isolation: boolean;
   crew_type?: string;
+  task_start?: string;
+  task_end?: string;
+  chainage_from_km?: number | null;
+  chainage_to_km?: number | null;
+  track_line?: string | null;
 }
 
 export interface GeneratedBlock {
@@ -282,6 +294,28 @@ export interface GeneratedBlock {
   execution_notes?: string | null;
   actual_start?: string | null;
   actual_end?: string | null;
+  why_together?: string;
+  train_impact?: any;
+}
+
+export interface PlanAlternative {
+  plan_label: string;
+  run_id: string;
+  is_recommended: boolean;
+  recommendation_explanation: string;
+  tasks_scheduled: number;
+  tasks_deferred: number;
+  critical_tasks_ratio: string;
+  priority_coverage_pct: number;
+  track_closure_hours: number;
+  joint_blocks_count: number;
+  trains_affected_count: number;
+  nearby_trains_count: number;
+  min_train_margin_min: number;
+  expected_delay_min: number;
+  train_impact_tier: 'zero' | 'amber' | 'red';
+  train_impact_badge: string;
+  solver_objective_value: number;
 }
 
 export interface PlanDetail {
@@ -299,10 +333,16 @@ export interface PlanDetail {
   completed_at: string | null;
   total_blocks: number;
   blocks: GeneratedBlock[];
+  train_impact?: any;
+  alternatives?: PlanAlternative[];
 }
 
 export function getPlan(runId: string): Promise<PlanDetail> {
   return request<PlanDetail>(`/api/plans/${runId}`);
+}
+
+export function getPlanAlternatives(runId: string): Promise<{ alternatives: PlanAlternative[] }> {
+  return request<{ alternatives: PlanAlternative[] }>(`/api/plans/${runId}/alternatives`);
 }
 
 // ─────────────────────────────────────────────
@@ -561,7 +601,9 @@ export interface TaskIntelligence {
     task_id: string;
     task_code: string;
     priority_score: number;
-    components: Record<string, { contribution: number; detail: string }>;
+    explanation_text?: string;
+    plain_english_explanation?: string;
+    components: Record<string, { contribution: number; detail: string; weight?: number; label?: string }>;
   };
   relationships: {
     compatible: {

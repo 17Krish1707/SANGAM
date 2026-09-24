@@ -77,6 +77,36 @@ def init_db(drop_first: bool = False):
                 conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN completed_at DATETIME"))
             if "completion_notes" not in cols:
                 conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN completion_notes VARCHAR(255)"))
+            if "track_line" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN track_line VARCHAR(20) DEFAULT 'UP'"))
+            if "chainage_from_km" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN chainage_from_km FLOAT"))
+            if "chainage_to_km" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN chainage_to_km FLOAT"))
+            if "block_type_required" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN block_type_required VARCHAR(50) DEFAULT 'Traffic Block'"))
+            if "requires_traffic_block" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN requires_traffic_block BOOLEAN DEFAULT 1"))
+            if "requires_signal_disconnection" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN requires_signal_disconnection BOOLEAN DEFAULT 0"))
+            if "is_joint_block_eligible" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN is_joint_block_eligible BOOLEAN DEFAULT 1"))
+            if "required_crew" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN required_crew VARCHAR(100)"))
+            if "required_equipment" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN required_equipment VARCHAR(100)"))
+            if "predecessor_task_id" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN predecessor_task_id VARCHAR(36)"))
+
+            # Check generated_block_tasks
+            res_gbt = conn.execute(text("PRAGMA table_info(generated_block_tasks)")).fetchall()
+            cols_gbt = {r[1] for r in res_gbt}
+            if "task_start" not in cols_gbt:
+                conn.execute(text("ALTER TABLE generated_block_tasks ADD COLUMN task_start DATETIME"))
+            if "task_end" not in cols_gbt:
+                conn.execute(text("ALTER TABLE generated_block_tasks ADD COLUMN task_end DATETIME"))
+            if "scheduled_duration_min" not in cols_gbt:
+                conn.execute(text("ALTER TABLE generated_block_tasks ADD COLUMN scheduled_duration_min INTEGER"))
 
             # Check train_movements
             res = conn.execute(text("PRAGMA table_info(train_movements)")).fetchall()
@@ -101,6 +131,10 @@ def init_db(drop_first: bool = False):
                 conn.execute(text("ALTER TABLE block_windows ADD COLUMN unavailability_reason VARCHAR(255)"))
             if "source" not in cols:
                 conn.execute(text("ALTER TABLE block_windows ADD COLUMN source VARCHAR(50) DEFAULT 'Computed Gap'"))
+            if "availability_reasons" not in cols:
+                conn.execute(text("ALTER TABLE block_windows ADD COLUMN availability_reasons VARCHAR(500)"))
+            if "provenance_label" not in cols:
+                conn.execute(text("ALTER TABLE block_windows ADD COLUMN provenance_label VARCHAR(100) DEFAULT 'Representative prototype operational data'"))
 
             # Check resources
             res = conn.execute(text("PRAGMA table_info(resources)")).fetchall()

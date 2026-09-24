@@ -54,6 +54,9 @@ class GeneratedBlockTask(Base):
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     block_id = Column(GUID, ForeignKey("generated_blocks.id", ondelete="CASCADE"), nullable=False, index=True)
     task_id = Column(GUID, ForeignKey("maintenance_tasks.id", ondelete="CASCADE"), nullable=False, index=True)
+    task_start = Column(DateTime, nullable=True)
+    task_end = Column(DateTime, nullable=True)
+    scheduled_duration_min = Column(Integer, nullable=True)
 
     block = relationship("GeneratedBlock", back_populates="block_tasks")
     task = relationship("MaintenanceTask", back_populates="block_assignments")
