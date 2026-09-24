@@ -83,6 +83,14 @@ def init_db(drop_first: bool = False):
                 conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN chainage_from_km FLOAT"))
             if "chainage_to_km" not in cols:
                 conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN chainage_to_km FLOAT"))
+            if "location_type" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN location_type VARCHAR(30)"))
+            if "start_entity_id" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN start_entity_id VARCHAR(50)"))
+            if "end_entity_id" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN end_entity_id VARCHAR(50)"))
+            if "location_display" not in cols:
+                conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN location_display VARCHAR(120)"))
             if "block_type_required" not in cols:
                 conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN block_type_required VARCHAR(50) DEFAULT 'Traffic Block'"))
             if "requires_traffic_block" not in cols:
@@ -97,6 +105,32 @@ def init_db(drop_first: bool = False):
                 conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN required_equipment VARCHAR(100)"))
             if "predecessor_task_id" not in cols:
                 conn.execute(text("ALTER TABLE maintenance_tasks ADD COLUMN predecessor_task_id VARCHAR(36)"))
+
+            # Check assets table for spatial references
+            res_ast = conn.execute(text("PRAGMA table_info(assets)")).fetchall()
+            cols_ast = {r[1] for r in res_ast}
+            if "track_line" not in cols_ast:
+                conn.execute(text("ALTER TABLE assets ADD COLUMN track_line VARCHAR(20) DEFAULT 'UP'"))
+            if "start_location_ref" not in cols_ast:
+                conn.execute(text("ALTER TABLE assets ADD COLUMN start_location_ref VARCHAR(50)"))
+            if "end_location_ref" not in cols_ast:
+                conn.execute(text("ALTER TABLE assets ADD COLUMN end_location_ref VARCHAR(50)"))
+            if "chainage_start_km" not in cols_ast:
+                conn.execute(text("ALTER TABLE assets ADD COLUMN chainage_start_km FLOAT"))
+            if "chainage_end_km" not in cols_ast:
+                conn.execute(text("ALTER TABLE assets ADD COLUMN chainage_end_km FLOAT"))
+
+            # Check generated_blocks
+            res = conn.execute(text("PRAGMA table_info(generated_blocks)")).fetchall()
+            cols = {r[1] for r in res}
+            if "execution_status" not in cols:
+                conn.execute(text("ALTER TABLE generated_blocks ADD COLUMN execution_status VARCHAR(30) DEFAULT 'pending'"))
+            if "cancellation_reason" not in cols:
+                conn.execute(text("ALTER TABLE generated_blocks ADD COLUMN cancellation_reason VARCHAR(255)"))
+            if "corridor_display" not in cols:
+                conn.execute(text("ALTER TABLE generated_blocks ADD COLUMN corridor_display VARCHAR(100)"))
+            if "spatial_coverage" not in cols:
+                conn.execute(text("ALTER TABLE generated_blocks ADD COLUMN spatial_coverage VARCHAR(150)"))
 
             # Check generated_block_tasks
             res_gbt = conn.execute(text("PRAGMA table_info(generated_block_tasks)")).fetchall()

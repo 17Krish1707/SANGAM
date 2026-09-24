@@ -35,6 +35,8 @@ class GeneratedBlock(Base):
     block_start = Column(DateTime, nullable=False, index=True)
     block_end = Column(DateTime, nullable=False, index=True)
     is_joint_block = Column(Boolean, nullable=False, default=False)
+    corridor_display = Column(String(100), nullable=True)  # e.g. "Mumbai Central Suburban (Dadar ↔ Matunga)"
+    spatial_coverage = Column(String(150), nullable=True)  # e.g. "KM 0.4 – 1.6 (Signal S1-S3 / Mast M04-M16)"
     approval_status = Column(String(30), nullable=False, default="recommended")  # recommended | approved | modified | rejected
     execution_status = Column(String(30), nullable=False, default="pending")  # pending | approved | in_progress | completed | cancelled
     cancellation_reason = Column(String(255), nullable=True)

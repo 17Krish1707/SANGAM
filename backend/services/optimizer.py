@@ -9,6 +9,8 @@ from backend.models.task import MaintenanceTask
 from backend.services.optimizer_common import OptimizationInputBundle
 from backend.services.compatibility_graph import has_conflict
 from backend.services.train_impact import compute_plan_train_impact
+from backend.services.spatial_reference import evaluate_tasks_spatial_compatibility, compute_possession_spatial_envelope
+from backend.services.candidate_block_engine import generate_candidate_block_options
 
 
 def run_sangam_optimizer(
@@ -157,8 +159,12 @@ def run_sangam_optimizer(
                 # Check if tasks cannot run in parallel (e.g. single track exclusive possession)
                 cannot_parallel = (not getattr(t1, "can_run_parallel", True)) or (not getattr(t2, "can_run_parallel", True))
 
-                if is_conflicting or cannot_parallel:
-                    # They cannot overlap in time!
+                # Check Railway Spatial Compatibility (chainage, track direction, boundary overlap)
+                spatial_eval = evaluate_tasks_spatial_compatibility(t1, t2)
+                spatial_incompatible = not spatial_eval.get("compatible", True)
+
+                if is_conflicting or cannot_parallel or spatial_incompatible:
+                    # They cannot overlap in time within this window!
                     # Add NoOverlap constraint so they can either run sequentially or in separate windows
                     model.AddNoOverlap([task_intervals[i1, j], task_intervals[i2, j]])
 
@@ -221,12 +227,14 @@ def run_sangam_optimizer(
                 t2_id = str(tasks[i2].id)
 
                 is_compat = False
-                if graph and graph.has_edge(t1_id, t2_id) and graph[t1_id][t2_id].get("relationship") == "compatible":
-                    is_compat = True
-                elif tasks[i1].department_id != tasks[i2].department_id:
-                    # Multi-department co-location
-                    if not (graph and has_conflict(graph, t1_id, t2_id)):
+                spatial_res = evaluate_tasks_spatial_compatibility(tasks[i1], tasks[i2])
+                if spatial_res.get("compatible", False):
+                    if graph and graph.has_edge(t1_id, t2_id) and graph[t1_id][t2_id].get("relationship") == "compatible":
                         is_compat = True
+                    elif tasks[i1].department_id != tasks[i2].department_id:
+                        # Multi-department co-location
+                        if not (graph and has_conflict(graph, t1_id, t2_id)):
+                            is_compat = True
 
                 if is_compat:
                     z_joint = model.NewBoolVar(f"joint_{i1}_{i2}_{j}")
@@ -332,12 +340,20 @@ def run_sangam_optimizer(
                 distinct_depts = {str(item["task"].department_id) for item in task_schedules}
                 is_joint = len(task_schedules) > 1 and len(distinct_depts) > 1
 
+                # Railway Spatial Envelope (Chainage, Signals, Masts)
+                scheduled_tasks_list = [item["task"] for item in task_schedules]
+                spatial_meta = compute_possession_spatial_envelope(scheduled_tasks_list)
+                sec_obj = w.section
+                corridor_lbl = f"{getattr(sec_obj, 'corridor_name', 'Corridor')} ({getattr(sec_obj, 'from_station', '')} ↔ {getattr(sec_obj, 'to_station', '')})" if sec_obj else "Corridor Section"
+
                 block = GeneratedBlock(
                     run_id=run_record.id,
                     section_id=w.section_id,
                     block_start=actual_block_start,
                     block_end=actual_block_end,
                     is_joint_block=is_joint,
+                    corridor_display=corridor_lbl,
+                    spatial_coverage=spatial_meta["display"],
                     approval_status="recommended",
                 )
                 db.add(block)

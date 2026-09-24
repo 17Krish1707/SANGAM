@@ -271,6 +271,10 @@ export interface BlockTask {
   chainage_from_km?: number | null;
   chainage_to_km?: number | null;
   track_line?: string | null;
+  location_type?: string | null;
+  start_entity_id?: string | null;
+  end_entity_id?: string | null;
+  location_display?: string | null;
 }
 
 export interface GeneratedBlock {
@@ -278,6 +282,11 @@ export interface GeneratedBlock {
   run_id: string;
   section_id: string;
   section_name: string | null;
+  corridor_name?: string | null;
+  from_station?: string | null;
+  to_station?: string | null;
+  corridor_display?: string | null;
+  spatial_coverage?: string | null;
   block_start: string;
   block_end: string;
   duration_min: number;

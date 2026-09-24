@@ -135,21 +135,61 @@ def seed_suburban_scratchpad(db=None):
         db.add_all([sec_dm, sec_ms, sec_sk, sec_kg, sec_gv])
         db.flush()
 
-        # 3. 10 Railway Assets distributed across corridor
+        # 3. 10 Railway Assets distributed across corridor with explicit spatial references
         assets = [
-            # Engineering
-            Asset(section_id=sec_dm.id, department_id=eng_dept.id, asset_type="Track Section", health_state="Degraded", notes="Track Section DM-01 (Continuous Welded Rail)"),
-            Asset(section_id=sec_dm.id, department_id=eng_dept.id, asset_type="Turnout", health_state="Good", notes="Turnout DM-02 (Crossover 101B)"),
-            Asset(section_id=sec_ms.id, department_id=eng_dept.id, asset_type="Track Section", health_state="Good", notes="Track Section MS-01"),
-            Asset(section_id=sec_sk.id, department_id=eng_dept.id, asset_type="Track Section", health_state="Good", notes="Track Section SK-01"),
-            Asset(section_id=sec_sk.id, department_id=eng_dept.id, asset_type="Turnout", health_state="Degraded", notes="Turnout SK-02"),
-            # TRD
-            Asset(section_id=sec_kg.id, department_id=trd_dept.id, asset_type="OHE Mast", health_state="Good", notes="OHE Mast KG-01"),
-            Asset(section_id=sec_kg.id, department_id=trd_dept.id, asset_type="Contact Wire", health_state="Critical", notes="Contact Wire KG-02"),
-            Asset(section_id=sec_gv.id, department_id=trd_dept.id, asset_type="OHE Mast", health_state="Good", notes="OHE Mast GV-01"),
-            # S&T
-            Asset(section_id=sec_sk.id, department_id=snt_dept.id, asset_type="Signal", health_state="Good", notes="Signal SK-S01 (4-Aspect Colour Light)"),
-            Asset(section_id=sec_kg.id, department_id=snt_dept.id, asset_type="Point Machine", health_state="Degraded", notes="Point Machine KG-P01 (Dual-Control)"),
+            # Engineering Track Spans
+            Asset(
+                section_id=sec_dm.id, department_id=eng_dept.id, asset_type="Track Section", health_state="Degraded",
+                notes="Track Section DM-01 (Continuous Welded Rail)", track_line="UP",
+                start_location_ref="KM 0.2", end_location_ref="KM 1.4", chainage_start_km=0.2, chainage_end_km=1.4
+            ),
+            Asset(
+                section_id=sec_dm.id, department_id=eng_dept.id, asset_type="Turnout", health_state="Good",
+                notes="Turnout DM-02 (Crossover 101B)", track_line="BOTH",
+                start_location_ref="KM 1.2", end_location_ref="KM 1.6", chainage_start_km=1.2, chainage_end_km=1.6
+            ),
+            Asset(
+                section_id=sec_ms.id, department_id=eng_dept.id, asset_type="Track Section", health_state="Good",
+                notes="Track Section MS-01", track_line="UP",
+                start_location_ref="KM 0.5", end_location_ref="KM 1.8", chainage_start_km=0.5, chainage_end_km=1.8
+            ),
+            Asset(
+                section_id=sec_sk.id, department_id=eng_dept.id, asset_type="Track Section", health_state="Good",
+                notes="Track Section SK-01", track_line="UP",
+                start_location_ref="KM 0.8", end_location_ref="KM 2.0", chainage_start_km=0.8, chainage_end_km=2.0
+            ),
+            Asset(
+                section_id=sec_sk.id, department_id=eng_dept.id, asset_type="Turnout", health_state="Degraded",
+                notes="Turnout SK-02", track_line="UP",
+                start_location_ref="KM 1.6", end_location_ref="KM 2.1", chainage_start_km=1.6, chainage_end_km=2.1
+            ),
+            # TRD OHE Mast Spans
+            Asset(
+                section_id=sec_kg.id, department_id=trd_dept.id, asset_type="OHE Mast", health_state="Good",
+                notes="OHE Mast KG-M12 to KG-M24", track_line="UP",
+                start_location_ref="Mast M-12", end_location_ref="Mast M-24", chainage_start_km=0.6, chainage_end_km=1.5
+            ),
+            Asset(
+                section_id=sec_kg.id, department_id=trd_dept.id, asset_type="Contact Wire", health_state="Critical",
+                notes="Contact Wire KG-CW02 Tension Length", track_line="UP",
+                start_location_ref="Mast M-18", end_location_ref="Mast M-32", chainage_start_km=0.9, chainage_end_km=1.8
+            ),
+            Asset(
+                section_id=sec_gv.id, department_id=trd_dept.id, asset_type="OHE Mast", health_state="Good",
+                notes="OHE Mast GV-M01 to GV-M15", track_line="UP",
+                start_location_ref="Mast M-01", end_location_ref="Mast M-15", chainage_start_km=0.1, chainage_end_km=0.9
+            ),
+            # S&T Signal and Point Machine Spans
+            Asset(
+                section_id=sec_sk.id, department_id=snt_dept.id, asset_type="Signal", health_state="Good",
+                notes="Signal SK-S01 to SK-S02 Block", track_line="UP",
+                start_location_ref="Signal S-101", end_location_ref="Signal S-102", chainage_start_km=0.9, chainage_end_km=1.7
+            ),
+            Asset(
+                section_id=sec_kg.id, department_id=snt_dept.id, asset_type="Point Machine", health_state="Degraded",
+                notes="Point Machine KG-P01 (Dual-Control)", track_line="UP",
+                start_location_ref="Signal S-204", end_location_ref="Point 104A", chainage_start_km=0.8, chainage_end_km=1.4
+            ),
         ]
         db.add_all(assets)
         db.flush()
@@ -313,7 +353,7 @@ def seed_suburban_scratchpad(db=None):
         )
         print(f"Generated {len(windows)} candidate block windows across 5 sections.")
 
-        # 7. 12 Maintenance Tasks with Controlled Conflicts (all due on demonstration horizon)
+        # 7. 12 Maintenance Tasks with Department-Specific Boundaries & Common Railway Reference
         tasks = [
             # TASK 1: Critical — Emergency Track Inspection on Dadar–Matunga
             MaintenanceTask(
@@ -329,6 +369,13 @@ def seed_suburban_scratchpad(db=None):
                 minimum_contiguous_block_min=45,
                 requires_power_isolation=False,
                 can_run_parallel=True,
+                track_line="UP",
+                chainage_from_km=0.2,
+                chainage_to_km=1.1,
+                location_type="chainage",
+                start_entity_id="KM 0.2",
+                end_entity_id="KM 1.1",
+                location_display="KM 0.200 → KM 1.100 [UP Track]",
                 status="Ready for Planning",
                 source="Manual",
                 description="Ultrasonic flaw detection follow-up on rail joint DM-01.",
@@ -349,6 +396,13 @@ def seed_suburban_scratchpad(db=None):
                 minimum_contiguous_block_min=75,
                 requires_power_isolation=False,
                 can_run_parallel=True,
+                track_line="BOTH",
+                chainage_from_km=1.2,
+                chainage_to_km=1.6,
+                location_type="chainage",
+                start_entity_id="KM 1.2",
+                end_entity_id="KM 1.6",
+                location_display="KM 1.200 → KM 1.600 [Crossover 101B]",
                 status="Ready for Planning",
                 source="Manual",
                 description="Thermit weld grinding and fishplate tightening on Crossover 101B.",
@@ -369,6 +423,13 @@ def seed_suburban_scratchpad(db=None):
                 minimum_contiguous_block_min=45,
                 requires_power_isolation=False,
                 can_run_parallel=True,
+                track_line="UP",
+                chainage_from_km=0.5,
+                chainage_to_km=1.7,
+                location_type="chainage",
+                start_entity_id="KM 0.5",
+                end_entity_id="KM 1.7",
+                location_display="KM 0.500 → KM 1.700 [UP Fast]",
                 status="Ready for Planning",
                 source="Manual",
                 description="Periodic track alignment and gauge variation inspection.",
@@ -389,6 +450,13 @@ def seed_suburban_scratchpad(db=None):
                 minimum_contiguous_block_min=60,
                 requires_power_isolation=True,
                 can_run_parallel=True,
+                track_line="UP",
+                chainage_from_km=0.8,
+                chainage_to_km=1.6,
+                location_type="mast_span",
+                start_entity_id="Mast M-16",
+                end_entity_id="Mast M-28",
+                location_display="Mast M-16 → Mast M-28 (KM 0.800–1.600)",
                 status="Ready for Planning",
                 source="Manual",
                 description="25 kV AC cantilever and dropper wire inspection.",
@@ -409,6 +477,13 @@ def seed_suburban_scratchpad(db=None):
                 minimum_contiguous_block_min=45,
                 requires_power_isolation=True,
                 can_run_parallel=True,
+                track_line="UP",
+                chainage_from_km=1.0,
+                chainage_to_km=1.5,
+                location_type="mast_span",
+                start_entity_id="Mast M-20",
+                end_entity_id="Mast M-30",
+                location_display="Mast M-20 → Mast M-30 (KM 1.000–1.500)",
                 status="Ready for Planning",
                 source="Manual",
                 description="Rectify abnormal contact wire wear at Kurla junction turnout.",
@@ -429,6 +504,13 @@ def seed_suburban_scratchpad(db=None):
                 minimum_contiguous_block_min=60,
                 requires_power_isolation=True,
                 can_run_parallel=True,
+                track_line="UP",
+                chainage_from_km=0.2,
+                chainage_to_km=0.8,
+                location_type="mast_span",
+                start_entity_id="Mast M-04",
+                end_entity_id="Mast M-14",
+                location_display="Mast M-04 → Mast M-14 (KM 0.200–0.800)",
                 status="Ready for Planning",
                 source="Manual",
                 description="OHE mast insulator wash and tension adjustment.",
@@ -449,6 +531,13 @@ def seed_suburban_scratchpad(db=None):
                 minimum_contiguous_block_min=45,
                 requires_power_isolation=False,
                 can_run_parallel=True,
+                track_line="UP",
+                chainage_from_km=0.9,
+                chainage_to_km=1.6,
+                location_type="signal_span",
+                start_entity_id="Signal S-101",
+                end_entity_id="Signal S-102",
+                location_display="Signal S-101 → Signal S-102 (KM 0.900–1.600)",
                 status="Ready for Planning",
                 source="Manual",
                 description="Colour light signal aspect luminance check and circuit audit.",
@@ -469,6 +558,13 @@ def seed_suburban_scratchpad(db=None):
                 minimum_contiguous_block_min=45,
                 requires_power_isolation=False,
                 can_run_parallel=True,
+                track_line="UP",
+                chainage_from_km=0.8,
+                chainage_to_km=1.3,
+                location_type="signal_span",
+                start_entity_id="Signal S-204",
+                end_entity_id="Point 104A",
+                location_display="Signal S-204 → Point 104A (KM 0.800–1.300)",
                 status="Ready for Planning",
                 source="Manual",
                 description="Obstruction test and motor current calibration on Point Machine KG-P01.",
@@ -489,6 +585,13 @@ def seed_suburban_scratchpad(db=None):
                 minimum_contiguous_block_min=60,
                 requires_power_isolation=False,
                 can_run_parallel=True,
+                track_line="UP",
+                chainage_from_km=0.6,
+                chainage_to_km=1.5,
+                location_type="signal_span",
+                start_entity_id="Signal S-05",
+                end_entity_id="Signal S-07",
+                location_display="Signal S-05 → Signal S-07 (KM 0.600–1.500)",
                 status="Ready for Planning",
                 source="Manual",
                 description="Megger insulation resistance testing of track detection signalling cables.",
@@ -509,6 +612,13 @@ def seed_suburban_scratchpad(db=None):
                 minimum_contiguous_block_min=60,
                 requires_power_isolation=True,
                 can_run_parallel=True,
+                track_line="UP",
+                chainage_from_km=0.9,
+                chainage_to_km=1.5,
+                location_type="chainage",
+                start_entity_id="KM 0.9",
+                end_entity_id="KM 1.5",
+                location_display="KM 0.900 → KM 1.500 [UP Track - Overlaps TRD-01]",
                 status="Ready for Planning",
                 source="Manual",
                 description="Coordinated Civil track inspection during scheduled traction power isolation.",
@@ -529,6 +639,13 @@ def seed_suburban_scratchpad(db=None):
                 minimum_contiguous_block_min=60,
                 requires_power_isolation=False,
                 can_run_parallel=True,
+                track_line="UP",
+                chainage_from_km=0.5,
+                chainage_to_km=2.5,
+                location_type="chainage",
+                start_entity_id="KM 0.5",
+                end_entity_id="KM 2.5",
+                location_display="KM 0.500 → KM 2.500 [UP Slow]",
                 status="Ready for Planning",
                 source="Manual",
                 description="General keyman foot patrol and ballast profile inspection.",
@@ -549,6 +666,13 @@ def seed_suburban_scratchpad(db=None):
                 minimum_contiguous_block_min=45,
                 requires_power_isolation=False,
                 can_run_parallel=True,
+                track_line="UP",
+                chainage_from_km=1.0,
+                chainage_to_km=1.7,
+                location_type="signal_span",
+                start_entity_id="Signal S-101",
+                end_entity_id="Signal S-102",
+                location_display="Signal S-101 → Signal S-102 (KM 1.000–1.700)",
                 status="Ready for Planning",
                 source="Manual",
                 description="Routine cleaning of signal lenses and transformer housing inspection.",

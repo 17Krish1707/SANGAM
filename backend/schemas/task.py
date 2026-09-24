@@ -21,6 +21,10 @@ class MaintenanceTaskBase(BaseModel):
     track_line: str = "UP"  # UP | DOWN | BOTH
     chainage_from_km: Optional[float] = None
     chainage_to_km: Optional[float] = None
+    location_type: Optional[str] = None
+    start_entity_id: Optional[str] = None
+    end_entity_id: Optional[str] = None
+    location_display: Optional[str] = None
     block_type_required: str = "Traffic Block"
     requires_traffic_block: bool = True
     requires_signal_disconnection: bool = False

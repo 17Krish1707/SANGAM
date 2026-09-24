@@ -29,7 +29,9 @@ from backend.services.baselines import run_independent_baseline, run_greedy_base
 from backend.services.optimizer import run_sangam_optimizer
 from backend.services.kpi_engine import compute_kpis
 
-PLAN_START = datetime(2026, 9, 7, 0, 0, 0)
+# Dynamically align planning window with operational dataset date
+_now = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+PLAN_START = _now
 PLAN_END   = PLAN_START + timedelta(days=7)
 
 PASS = "\033[92m✓ PASS\033[0m"

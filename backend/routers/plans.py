@@ -731,6 +731,10 @@ def get_plan(
                 "track_line": getattr(t, "track_line", "UP"),
                 "chainage_from_km": getattr(t, "chainage_from_km", None),
                 "chainage_to_km": getattr(t, "chainage_to_km", None),
+                "location_type": getattr(t, "location_type", None),
+                "start_entity_id": getattr(t, "start_entity_id", None),
+                "end_entity_id": getattr(t, "end_entity_id", None),
+                "location_display": getattr(t, "location_display", None),
                 "scheduled_start": t_start.isoformat(),
                 "scheduled_end": t_end.isoformat(),
             })
@@ -739,8 +743,10 @@ def get_plan(
         single_block_impact = compute_plan_train_impact(db, [b])
 
         sec_name = b.section.name if b.section else "Corridor Section"
+        spatial_cov = getattr(b, "spatial_coverage", None) or f"KM {min((t['chainage_from_km'] for t in tasks_list if t['chainage_from_km'] is not None), default=0.0):.1f} – {max((t['chainage_to_km'] for t in tasks_list if t['chainage_to_km'] is not None), default=1.5):.1f}"
         why_together = [
             f"✓ Same railway corridor section ({sec_name})",
+            f"✓ Physical spatial overlap ({spatial_cov})",
             "✓ Departmental work safety-compatible and concurrent",
             "✓ Separate non-competing track crews & machinery",
             "✓ Coordinated within verified railway traffic gap",
@@ -754,6 +760,8 @@ def get_plan(
             "corridor_name": b.section.corridor_name if b.section else "Main Corridor",
             "from_station": b.section.from_station if b.section else "",
             "to_station": b.section.to_station if b.section else "",
+            "corridor_display": getattr(b, "corridor_display", None) or f"{b.section.from_station if b.section else ''} ↔ {b.section.to_station if b.section else ''}",
+            "spatial_coverage": spatial_cov,
             "block_start": b.block_start.isoformat(),
             "block_end": b.block_end.isoformat(),
             "duration_min": dur_min,

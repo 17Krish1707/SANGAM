@@ -26,6 +26,11 @@ class MaintenanceTask(Base):
     track_line = Column(String(20), nullable=False, default="UP")  # UP | DOWN | BOTH
     chainage_from_km = Column(Float, nullable=True)
     chainage_to_km = Column(Float, nullable=True)
+    # Department-specific railway location representation
+    location_type = Column(String(30), nullable=True)  # signal_span | mast_span | chainage | asset_bound
+    start_entity_id = Column(String(50), nullable=True)  # e.g. "Signal S1" (S&T), "Mast M18" (TRD)
+    end_entity_id = Column(String(50), nullable=True)    # e.g. "Signal S2" (S&T), "Mast M27" (TRD)
+    location_display = Column(String(120), nullable=True) # e.g. "Signal S1 → Signal S2 (KM 12.0 – 13.5)"
     block_type_required = Column(String(50), nullable=False, default="Traffic Block")  # Traffic Block | Power Block | S&T Disconnection | Integrated Block
     requires_traffic_block = Column(Boolean, nullable=False, default=True)
     requires_signal_disconnection = Column(Boolean, nullable=False, default=False)

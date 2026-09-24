@@ -240,8 +240,8 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
           {/* Top Sticky Time Scale Header */}
           <div className="flex border-b border-[#D9E1EA] bg-[#F8FAFC] sticky top-0 z-20 text-[11px] font-mono text-[#667085]">
             {/* Left corner pinned header */}
-            <div className="w-48 flex-shrink-0 px-4 py-2 border-r border-[#D9E1EA] bg-[#F8FAFC] sticky left-0 z-30 font-bold text-[#172033] uppercase text-[10px] tracking-wider flex items-center justify-between">
-              <span>Section / Sub-Lane</span>
+            <div className="w-56 flex-shrink-0 px-4 py-2 border-r border-[#D9E1EA] bg-[#F8FAFC] sticky left-0 z-30 font-bold text-[#172033] uppercase text-[10px] tracking-wider flex items-center justify-between">
+              <span>Corridor / Sub-Lane</span>
               <span className="text-[9px] text-[#667085]">Type</span>
             </div>
 
@@ -308,14 +308,21 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                 return (
                   <div key={sec.id} className="flex relative group hover:bg-slate-50/40 transition-colors">
                     {/* Sticky Left Column: Section Name with TRAINS and MAINTENANCE sub-labels */}
-                    <div className="w-48 flex-shrink-0 border-r border-[#D9E1EA] bg-white sticky left-0 z-10 flex flex-col justify-between shadow-xs">
+                    <div className="w-56 flex-shrink-0 border-r border-[#D9E1EA] bg-white sticky left-0 z-10 flex flex-col justify-between shadow-xs">
                       {/* Section Title Header */}
-                      <div className="p-2.5 border-b border-slate-100">
-                        <div className="font-bold text-xs text-[#172033] group-hover:text-[#173F7A] truncate">
-                          {sec.name}
+                      <div className="p-2 border-b border-slate-100">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-[#172033] group-hover:text-[#173F7A] truncate">
+                            {sec.name}
+                          </span>
+                          <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-slate-100 font-mono font-bold text-slate-600">
+                            {sec.line_type || 'Double'}
+                          </span>
                         </div>
-                        <div className="text-[10px] text-[#667085] font-mono mt-0.5">
-                          {sec.from_station} → {sec.to_station}
+                        <div className="text-[10px] text-[#667085] font-mono mt-0.5 truncate flex items-center gap-1">
+                          <span className="text-[#173F7A] font-semibold">Corridor:</span>
+                          <span>{sec.from_station} ↔ {sec.to_station}</span>
+                          <span>({sec.length_km ? `${sec.length_km}km` : '25km'})</span>
                         </div>
                       </div>
 
@@ -521,7 +528,12 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
                                       POSSESSION {b.duration_min}m
                                     </span>
                                   )}
-                                  {widthPx > 110 && (
+                                  {b.spatial_coverage && widthPx > 140 && (
+                                    <span className="font-mono text-[8px] bg-slate-100 text-slate-700 px-1 py-0.2 rounded border border-slate-200 truncate">
+                                      {b.spatial_coverage}
+                                    </span>
+                                  )}
+                                  {widthPx > 110 && !b.spatial_coverage && (
                                     <span className="font-semibold text-slate-700 truncate">
                                       {startTime}–{endTime}
                                     </span>
@@ -697,6 +709,11 @@ export const OperationalGanttTimeline: React.FC<OperationalGanttTimelineProps> =
           </div>
 
           <div className="font-bold text-sm">{hoveredBlock.section_name}</div>
+          {hoveredBlock.spatial_coverage && (
+            <div className="text-[11px] font-mono text-amber-300 bg-amber-950/40 px-2 py-1 rounded border border-amber-800/60">
+              <span className="text-amber-400 font-bold">Spatial Envelope:</span> {hoveredBlock.spatial_coverage}
+            </div>
+          )}
 
           <div className="space-y-1 py-1 border-y border-slate-700 text-[11px] font-mono">
             <div className="flex justify-between text-slate-300">

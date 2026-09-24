@@ -500,6 +500,11 @@ export default function ProposedPlan() {
                           <span className="font-mono font-bold text-xs text-[#173F7A] bg-[#EBF2FA] px-2.5 py-1 rounded">
                             {b.section_name}
                           </span>
+                          {b.spatial_coverage && (
+                            <span className="font-mono text-[10px] bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded font-bold">
+                              {b.spatial_coverage}
+                            </span>
+                          )}
                           {b.is_joint_block && (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800">
                               Joint Block ({b.departments?.join(' · ')})
@@ -567,22 +572,49 @@ export default function ProposedPlan() {
                   </div>
                 </div>
 
-                {/* 1. INPUT TASKS */}
+                {/* SPATIAL ENVELOPE & COMMON RAILWAY REFERENCE */}
+                {selectedBlock.spatial_coverage && (
+                  <div className="p-2.5 rounded bg-amber-50/70 border border-amber-200 space-y-1 text-xs">
+                    <div className="font-mono text-[10px] uppercase font-bold text-amber-900 flex items-center justify-between">
+                      <span>Railway Spatial Envelope</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-950 font-bold">
+                        {selectedBlock.corridor_display || 'Corridor Segment'}
+                      </span>
+                    </div>
+                    <div className="font-mono font-bold text-amber-950 text-xs">
+                      {selectedBlock.spatial_coverage}
+                    </div>
+                    <div className="text-[10px] text-amber-800">
+                      Coordinated spatial reference mapping S&T signals, TRD OHE masts, and Civil track chainage into one possession envelope.
+                    </div>
+                  </div>
+                )}
+
+                {/* 1. INPUT TASKS WITH DEPARTMENTAL BOUNDARIES */}
                 <div>
                   <div className="font-mono text-[10px] uppercase font-bold text-[#173F7A] mb-1.5 flex items-center gap-1">
                     <Wrench className="w-3.5 h-3.5" />
-                    Input Tasks ({selectedBlock.tasks?.length || 0})
+                    Input Tasks & Departmental Boundaries ({selectedBlock.tasks?.length || 0})
                   </div>
                   <div className="space-y-1.5">
                     {selectedBlock.tasks?.map((t) => (
-                      <div key={t.id} className="p-2 rounded bg-[#F8FAFC] border border-slate-200">
+                      <div key={t.id} className="p-2.5 rounded bg-[#F8FAFC] border border-slate-200 space-y-1">
                         <div className="flex items-center justify-between font-mono font-bold">
                           <span className="text-[#173F7A]">{t.task_code}</span>
                           <span className="px-1.5 py-0.2 rounded bg-slate-200 text-[10px]">
                             {t.department || 'ENG'}
                           </span>
                         </div>
-                        <div className="text-[11px] text-[#667085] mt-0.5">{t.maintenance_type}</div>
+                        <div className="text-[11px] text-[#667085]">{t.maintenance_type}</div>
+                        {t.location_display ? (
+                          <div className="text-[10px] font-mono text-[#173F7A] bg-blue-50/60 px-1.5 py-0.5 rounded border border-blue-200/60 flex items-center gap-1">
+                            <span className="font-bold">Location:</span> {t.location_display}
+                          </div>
+                        ) : t.chainage_from_km !== undefined && t.chainage_from_km !== null ? (
+                          <div className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                            Span: KM {t.chainage_from_km.toFixed(1)} – {t.chainage_to_km?.toFixed(1) || ''} [{t.track_line || 'UP'}]
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                   </div>
